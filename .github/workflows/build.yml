@@ -18,14 +18,14 @@ jobs:
       - name: Clone kernel source
         run: |
           git clone --depth=1 -b lineage-15.1 \
-            https://github.com/SaaSD3v/android_kernel_motorola_msm8996.git \
+            https://github.com/LineageOS/android_kernel_motorola_msm8996.git \
             kernel
 
-      - name: Apply yylloc fix
+      - name: Apply patches
         run: |
           cd kernel
-          sed -i 's/^YYLTYPE yylloc;$/extern YYLTYPE yylloc;/' scripts/dtc/dtc-lexer.l
-          sed -i 's/^YYLTYPE yylloc;$/extern YYLTYPE yylloc;/' scripts/dtc/dtc-lexer.lex.c_shipped
+          git apply ../patches/0002-scripts-dtc-fix-yylloc-link-failure-with-modern-host.patch
+          git apply ../patches/0001-albus-add-DroidSpaces-legacy-kernel-fixes.patch
 
       - name: Download Android NDK r17c (GCC 4.9)
         run: |
@@ -42,20 +42,30 @@ jobs:
           kernel/scripts/kconfig/merge_config.sh -m \
             -O ${{ github.workspace }}/build \
             ${{ github.workspace }}/build/.config \
-            ${{ github.workspace }}/configs/droidspaces-minimal.fragment
+            ${{ github.workspace }}/configs/android-wifi-safe.fragment
 
           make -C kernel O=${{ github.workspace }}/build \
             ARCH=arm64 olddefconfig
 
           make -C kernel O=${{ github.workspace }}/build \
             ARCH=arm64 CROSS_COMPILE=${{ env.CROSS }} \
-            -j$(nproc) Image.gz
+            -j$(nproc) Image.gz dtbs modules
+
+      - name: Build dtbTool
+        run: |
+          gcc -O2 -Wall -o dtbtool_bin dtbtool/dtbtool.c
+          ./dtbtool_bin --force-v3 --motorola 1 --page-size 2048 \
+            --dtc-path build/scripts/dtc/ \
+            --output-file output/dtb \
+            build/arch/arm64/boot/dts/qcom/
 
       - name: Package kernel
         run: |
           mkdir -p output
           cp build/arch/arm64/boot/Image.gz output/
-          cd output && zip -r9 ../albus-kernel-droidspaces.zip Image.gz
+          cp output/dtb output/dt.img
+          cp build/.config output/albus.config
+          cd output && zip -r9 ../albus-kernel-droidspaces.zip Image.gz dt.img albus.config
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

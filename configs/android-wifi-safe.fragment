@@ -1,0 +1,60 @@
+# CrystalKernel Android configuration fragment
+# Base: LineageOS 15.1 albus_defconfig, Linux 3.18.71
+
+CONFIG_LOCALVERSION="-CrystalKernel-albus"
+# CONFIG_LOCALVERSION_AUTO is not set
+
+# DroidSpaces mandatory namespace and IPC support.
+CONFIG_SYSCTL=y
+CONFIG_SYSVIPC=y
+CONFIG_POSIX_MQUEUE=y
+CONFIG_NAMESPACES=y
+CONFIG_PID_NS=y
+CONFIG_UTS_NS=y
+CONFIG_IPC_NS=y
+# CONFIG_USER_NS is not set
+
+# Syscall filtering is already enabled by the LineageOS base.
+CONFIG_SECCOMP=y
+CONFIG_SECCOMP_FILTER=y
+
+# Legacy cgroup v1 controllers available in this 3.18 tree.
+CONFIG_CGROUPS=y
+CONFIG_CGROUP_DEVICE=y
+CONFIG_MEMCG=y
+CONFIG_CGROUP_SCHED=y
+CONFIG_FAIR_GROUP_SCHED=y
+CONFIG_CGROUP_FREEZER=y
+CONFIG_CGROUP_NET_PRIO=y
+
+# Filesystems and device support used by DroidSpaces.
+CONFIG_DEVTMPFS=y
+# CONFIG_DEVTMPFS_MOUNT is not set
+CONFIG_OVERLAY_FS=y
+CONFIG_TMPFS_POSIX_ACL=y
+CONFIG_TMPFS_XATTR=y
+CONFIG_UNIX98_PTYS=y
+CONFIG_DEVPTS_MULTIPLE_INSTANCES=y
+CONFIG_BLK_DEV_LOOP=y
+CONFIG_EXT4_FS=y
+CONFIG_FUSE_FS=y
+
+# Keep Android's original network permission model and accounting path.
+CONFIG_ANDROID_PARANOID_NETWORK=y
+CONFIG_NETFILTER_XT_MATCH_QTAGUID=y
+# CONFIG_NETFILTER_XT_MATCH_OWNER is not set
+
+# Optional isolated networking support. Existing LineageOS iptables/NAT
+# settings remain unchanged to minimize changes to the Android Wi-Fi stack.
+CONFIG_NET_NS=y
+CONFIG_VETH=y
+CONFIG_BRIDGE=y
+CONFIG_TUN=y
+CONFIG_IPV6=y
+
+# Preserve the exact built-in albus Wi-Fi stack selected by the base config.
+CONFIG_CFG80211=y
+CONFIG_WCNSS_CORE=y
+CONFIG_WCNSS_CORE_PRONTO=y
+CONFIG_WCNSS_MEM_PRE_ALLOC=y
+CONFIG_PRONTO_WLAN=y
