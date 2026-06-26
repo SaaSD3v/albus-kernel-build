@@ -13,7 +13,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y bc bison flex libssl-dev make libncurses-dev zip wget python3 ccache
+          sudo apt-get install -y bc bison flex libssl-dev make libncurses-dev zip wget python3
 
       - name: Clone kernel source
         run: |
@@ -21,18 +21,22 @@ jobs:
             https://github.com/SaaSD3v/android_kernel_motorola_msm8996.git \
             kernel
 
-      - name: Download GCC 4.9 AArch64
+      - name: Apply yylloc fix
         run: |
-          git clone --depth=1 -b android11-release \
-            https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 \
-            toolchains/gcc-aarch64-4.9
+          cd kernel
+          sed -i 's/^YYLTYPE yylloc;$/extern YYLTYPE yylloc;/' scripts/dtc/dtc-lexer.l
+          sed -i 's/^YYLTYPE yylloc;$/extern YYLTYPE yylloc;/' scripts/dtc/dtc-lexer.lex.c_shipped
+
+      - name: Download Android NDK r17c (GCC 4.9)
+        run: |
+          wget -q https://dl.google.com/android/repository/android-ndk-r17c-linux-x86_64.zip
+          unzip -q android-ndk-r17c-linux-x86_64.zip
+          echo "CROSS=${PWD}/android-ndk-r17c/toolchains/aarch64-linux-android-4.9/prebuilt/linux-x86_64/bin/aarch64-linux-android-" >> $GITHUB_ENV
 
       - name: Build kernel
         run: |
-          export PATH="${{ github.workspace }}/toolchains/gcc-aarch64-4.9/bin:$PATH"
-
           make -C kernel O=${{ github.workspace }}/build \
-            ARCH=arm64 CROSS_COMPILE=aarch64-linux-android- \
+            ARCH=arm64 CROSS_COMPILE=${{ env.CROSS }} \
             albus_defconfig
 
           kernel/scripts/kconfig/merge_config.sh -m \
@@ -44,7 +48,7 @@ jobs:
             ARCH=arm64 olddefconfig
 
           make -C kernel O=${{ github.workspace }}/build \
-            ARCH=arm64 CROSS_COMPILE=aarch64-linux-android- \
+            ARCH=arm64 CROSS_COMPILE=${{ env.CROSS }} \
             -j$(nproc) Image.gz
 
       - name: Package kernel
