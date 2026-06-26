@@ -1,7 +1,7 @@
-# CrystalKernel Android configuration fragment
+# Android configuration fragment
 # Base: LineageOS 15.1 albus_defconfig, Linux 3.18.71
 
-CONFIG_LOCALVERSION="-CrystalKernel-albus"
+# CONFIG_LOCALVERSION is not set
 # CONFIG_LOCALVERSION_AUTO is not set
 
 # DroidSpaces mandatory namespace and IPC support.

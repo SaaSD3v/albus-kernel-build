@@ -1,8 +1,8 @@
-# Albus Crystal Kernel++ configuration fragment
+# DroidSpaces configuration fragment
 # Base: LineageOS 15.1 albus_defconfig, Linux 3.18.71
 
 # Deterministic kernel identity
-CONFIG_LOCALVERSION="-Albus-Crystal-Kernel++"
+# CONFIG_LOCALVERSION is not set
 # CONFIG_LOCALVERSION_AUTO is not set
 
 # DroidSpaces mandatory IPC and namespace support
