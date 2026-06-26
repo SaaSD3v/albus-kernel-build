@@ -51,8 +51,9 @@ jobs:
             ARCH=arm64 CROSS_COMPILE=${{ env.CROSS }} \
             -j$(nproc) Image.gz dtbs modules
 
-      - name: Build dtbTool
+      - name: Build dtbTool and generate DTB
         run: |
+          mkdir -p output
           gcc -O2 -Wall -o dtbtool_bin dtbtool/dtbtool.c
           ./dtbtool_bin --force-v3 --motorola 1 --page-size 2048 \
             --dtc-path build/scripts/dtc/ \
@@ -61,7 +62,6 @@ jobs:
 
       - name: Package kernel
         run: |
-          mkdir -p output
           cp build/arch/arm64/boot/Image.gz output/
           cp output/dtb output/dt.img
           cp build/.config output/albus.config
