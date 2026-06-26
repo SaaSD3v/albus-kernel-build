@@ -49,8 +49,8 @@ jobs:
 
       - name: Build dtbTool
         run: |
-          gcc -O2 -Wall -o dtbtool dtbtool/dtbtool.c
-          ./dtbtool --force-v3 --motorola 1 --page-size 2048 \
+          gcc -O2 -Wno-stringop-truncation -Wno-maybe-uninitialized -o dtbtool_bin dtbtool/dtbtool.c
+          ./dtbtool_bin --force-v3 --motorola 1 --page-size 2048 \
             --dtc-path kernel/out/scripts/dtc/ \
             --output-file kernel/out/dtb \
             kernel/out/arch/arm64/boot/dts/qcom/
