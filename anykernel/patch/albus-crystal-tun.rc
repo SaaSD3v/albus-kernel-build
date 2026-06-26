@@ -1,0 +1,5 @@
+
+# albus-crystal-tun
+on post-fs
+    mkdir /dev/net 0755 root root
+    symlink /dev/tun /dev/net/tun

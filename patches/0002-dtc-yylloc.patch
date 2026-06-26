@@ -1,0 +1,44 @@
+From 36ac44823ec17b58be181b031d61e7634d6f6d57 Mon Sep 17 00:00:00 2001
+From: Albus Crystal Kernel Builder <local-builder@albus.invalid>
+Date: Fri, 12 Jun 2026 18:40:37 -0400
+Subject: [PATCH 2/2] scripts: dtc: fix yylloc link failure with modern hosts
+
+---
+ scripts/dtc/dtc-lexer.l             | 2 +-
+ scripts/dtc/dtc-lexer.lex.c_shipped | 3 +--
+ 2 files changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/scripts/dtc/dtc-lexer.l b/scripts/dtc/dtc-lexer.l
+index 3b41bfca..9b9c29e6 100644
+--- a/scripts/dtc/dtc-lexer.l
++++ b/scripts/dtc/dtc-lexer.l
+@@ -39,7 +39,7 @@ LINECOMMENT	"//".*\n
+ #include "srcpos.h"
+ #include "dtc-parser.tab.h"
+ 
+-YYLTYPE yylloc;
++extern YYLTYPE yylloc;
+ 
+ /* CAUTION: this will stop working if we ever use yyless() or yyunput() */
+ #define	YY_USER_ACTION \
+diff --git a/scripts/dtc/dtc-lexer.lex.c_shipped b/scripts/dtc/dtc-lexer.lex.c_shipped
+index 2d30f417..becf5956 100644
+--- a/scripts/dtc/dtc-lexer.lex.c_shipped
++++ b/scripts/dtc/dtc-lexer.lex.c_shipped
+@@ -637,7 +637,7 @@ char *yytext;
+ #include "srcpos.h"
+ #include "dtc-parser.tab.h"
+ 
+-YYLTYPE yylloc;
++extern YYLTYPE yylloc;
+ 
+ /* CAUTION: this will stop working if we ever use yyless() or yyunput() */
+ #define	YY_USER_ACTION \
+@@ -2192,4 +2192,3 @@ static int pop_input_file(void)
+ 
+ 	return 1;
+ }
+-
+-- 
+2.54.0
+
