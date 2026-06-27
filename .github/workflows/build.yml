@@ -7,70 +7,47 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Install dependencies
+      - name: Install deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y bc bison flex libssl-dev make libncurses-dev zip wget python3
+          sudo apt-get install -y bc bison flex libssl-dev make libncurses-dev zip wget python3 libtinfo-dev
+          sudo ln -sf /usr/lib/x86_64-linux-gnu/libtinfo.so.6 /usr/lib/x86_64-linux-gnu/libtinfo.so.5
 
-      - name: Clone kernel source
+      - name: Clone kernel
         run: |
-          git clone --depth=1 -b lineage-15.1 \
-            https://github.com/LineageOS/android_kernel_motorola_msm8996.git \
-            kernel
+          git clone --depth=1 -b lineage-15.1 https://github.com/LineageOS/android_kernel_motorola_msm8996.git kernel
 
       - name: Apply patches
         run: |
           cd kernel
           git apply ../patches/0002-scripts-dtc-fix-yylloc-link-failure-with-modern-host.patch
           git apply ../patches/0001-albus-add-DroidSpaces-legacy-kernel-fixes.patch
-          sed -i "/#include <trace/events/f2fs.h>/a\extern void kfree_put_link(struct dentry *, struct nameidata *, void *);" fs/f2fs/namei.c
-          sed -i "/^void kfree_put_link(struct dentry *dentry, struct nameidata *nd,$/,/^}$/d" fs/f2fs/namei.c
+          # Fix f2fs kfree_put_link multiple definition
+          sed -i '/^void kfree_put_link(struct dentry \*dentry, struct nameidata \*nd,$/,/^}$/d' fs/f2fs/namei.c
+          sed -i '/#include <trace\/events\/f2fs.h>/a\extern void kfree_put_link(struct dentry *, struct nameidata *, void *);' fs/f2fs/namei.c
 
-      - name: Download Android NDK r17c (GCC 4.9)
+      - name: GCC 4.9
         run: |
           wget -q https://dl.google.com/android/repository/android-ndk-r17c-linux-x86_64.zip
           unzip -q android-ndk-r17c-linux-x86_64.zip
-          echo "CROSS=${PWD}/android-ndk-r17c/toolchains/aarch64-linux-android-4.9/prebuilt/linux-x86_64/bin/aarch64-linux-android-" >> $GITHUB_ENV
+          echo "CROSS=$PWD/android-ndk-r17c/toolchains/aarch64-linux-android-4.9/prebuilt/linux-x86_64/bin/aarch64-linux-android-" >> $GITHUB_ENV
 
-      - name: Build kernel
+      - name: Build
         run: |
-          make -C kernel O=${{ github.workspace }}/build \
-            ARCH=arm64 CROSS_COMPILE=${{ env.CROSS }} \
-            albus_defconfig
+          make -C kernel O=$PWD/build ARCH=arm64 CROSS_COMPILE=$CROSS albus_defconfig
+          kernel/scripts/kconfig/merge_config.sh -m -O $PWD/build $PWD/build/.config $PWD/configs/recovery-droidspaces.fragment
+          make -C kernel O=$PWD/build ARCH=arm64 olddefconfig
+          make -C kernel O=$PWD/build ARCH=arm64 CROSS_COMPILE=$CROSS -j$(nproc) Image.gz
 
-          kernel/scripts/kconfig/merge_config.sh -m \
-            -O ${{ github.workspace }}/build \
-            ${{ github.workspace }}/build/.config \
-            ${{ github.workspace }}/configs/recovery-droidspaces.fragment
-
-          make -C kernel O=${{ github.workspace }}/build \
-            ARCH=arm64 olddefconfig
-
-          make -C kernel O=${{ github.workspace }}/build \
-            ARCH=arm64 CROSS_COMPILE=${{ env.CROSS }} \
-            -j$(nproc) Image.gz dtbs modules
-
-      - name: Build dtbTool and generate DTB
+      - name: Package
         run: |
           mkdir -p output
-          gcc -O2 -Wall -o dtbtool_bin dtbtool/dtbtool.c
-          ./dtbtool_bin --force-v3 --motorola 1 --page-size 2048 \
-            --dtc-path build/scripts/dtc/ \
-            --output-file output/dtb \
-            build/arch/arm64/boot/dts/qcom/
-
-      - name: Package kernel
-        run: |
           cp build/arch/arm64/boot/Image.gz output/
-          cp output/dtb output/dt.img
-          cp build/.config output/albus.config
-          cd output && zip -r9 ../albus-kernel-droidspaces.zip Image.gz dt.img albus.config
+          cd output && zip -r9 ../kernel-liquidsaas.zip Image.gz
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: albus-kernel-droidspaces
-          path: albus-kernel-droidspaces.zip
+          name: kernel-liquidsaas
+          path: kernel-liquidsaas.zip
