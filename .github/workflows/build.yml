@@ -26,6 +26,8 @@ jobs:
           cd kernel
           git apply ../patches/0002-scripts-dtc-fix-yylloc-link-failure-with-modern-host.patch
           git apply ../patches/0001-albus-add-DroidSpaces-legacy-kernel-fixes.patch
+          sed -i "/#include <trace/events/f2fs.h>/a\extern void kfree_put_link(struct dentry *, struct nameidata *, void *);" fs/f2fs/namei.c
+          sed -i "/^void kfree_put_link(struct dentry *dentry, struct nameidata *nd,$/,/^}$/d" fs/f2fs/namei.c
 
       - name: Download Android NDK r17c (GCC 4.9)
         run: |
