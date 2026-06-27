@@ -1,5 +1,8 @@
-# TWRP recovery kernel configuration fragment
+# Crystal TWRP recovery kernel configuration fragment
 # Base: configuration extracted from TWRP 3.6.2_9-0 albus
+
+CONFIG_LOCALVERSION="-LiquidSaaS"
+# CONFIG_LOCALVERSION_AUTO is not set
 
 CONFIG_SYSCTL=y
 CONFIG_SYSVIPC=y
@@ -38,6 +41,7 @@ CONFIG_F2FS_FS_XATTR=y
 CONFIG_F2FS_FS_POSIX_ACL=y
 CONFIG_F2FS_FS_SECURITY=y
 CONFIG_F2FS_FS_ENCRYPTION=y
+# CONFIG_F2FS_CHECK_FS is not set
 
 CONFIG_NETFILTER=y
 CONFIG_VETH=y
@@ -45,10 +49,11 @@ CONFIG_BRIDGE=y
 CONFIG_TUN=y
 CONFIG_IPV6=y
 
-# Recovery has no Android Wi-Fi framework daemons
+# Recovery has no Android Wi-Fi framework daemons that depend on AID network
+# capability shortcuts. Disable the restriction for container networking.
 # CONFIG_ANDROID_PARANOID_NETWORK is not set
 
-# WiFi modular for TWRP
+# Keep the large PRONTO driver modular, matching the official TWRP kernel.
 CONFIG_CFG80211=y
 CONFIG_WCNSS_CORE=y
 CONFIG_WCNSS_CORE_PRONTO=y

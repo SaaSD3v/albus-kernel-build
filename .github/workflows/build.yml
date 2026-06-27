@@ -42,7 +42,7 @@ jobs:
           kernel/scripts/kconfig/merge_config.sh -m \
             -O ${{ github.workspace }}/build \
             ${{ github.workspace }}/build/.config \
-            ${{ github.workspace }}/configs/android-wifi-safe.fragment
+            ${{ github.workspace }}/configs/recovery-droidspaces.fragment
 
           make -C kernel O=${{ github.workspace }}/build \
             ARCH=arm64 olddefconfig
