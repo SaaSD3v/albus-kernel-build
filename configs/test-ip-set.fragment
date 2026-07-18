@@ -1,0 +1,2 @@
+# Test fragment: test-ip-set.fragment
+CONFIG_IP_SET=y

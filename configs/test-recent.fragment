@@ -1,0 +1,2 @@
+# Test fragment: test-recent.fragment
+CONFIG_NETFILTER_XT_MATCH_RECENT=y

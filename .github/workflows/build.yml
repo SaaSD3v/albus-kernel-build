@@ -1,0 +1,47 @@
+name: Build Albus Kernel
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bc bison flex libssl-dev make libncurses-dev zip libtinfo-dev
+          sudo ln -sf /usr/lib/x86_64-linux-gnu/libtinfo.so.6 /usr/lib/x86_64-linux-gnu/libtinfo.so.5
+
+      - name: Clone kernel
+        run: |
+          git clone --depth=1 -b lineage-15.1 https://github.com/SaaSD3v/android_kernel_motorola_msm8996.git kernel
+
+      - name: GCC 4.9
+        run: |
+          wget -q https://dl.google.com/android/repository/android-ndk-r17c-linux-x86_64.zip
+          unzip -q android-ndk-r17c-linux-x86_64.zip
+          echo "CROSS=$PWD/android-ndk-r17c/toolchains/aarch64-linux-android-4.9/prebuilt/linux-x86_64/bin/aarch64-linux-android-" >> $GITHUB_ENV
+
+      - name: Build
+        run: |
+          make -C kernel O=$PWD/build ARCH=arm64 CROSS_COMPILE=$CROSS albus_defconfig
+          kernel/scripts/kconfig/merge_config.sh -m -O $PWD/build $PWD/build/.config $PWD/configs/wifi-safe.fragment
+          make -C kernel O=$PWD/build ARCH=arm64 olddefconfig
+          make -C kernel O=$PWD/build ARCH=arm64 CROSS_COMPILE=$CROSS -j$(nproc) Image.gz
+
+      - name: Package with AnyKernel
+        run: |
+          git clone --depth=1 https://github.com/osm0sis/AnyKernel3.git anykernel
+          cp build/arch/arm64/boot/Image.gz anykernel/
+          cp anykernel.sh anykernel/
+          cd anykernel
+          zip -r9 ../albus-kernel.zip * -x '*.git*'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: albus-kernel
+          path: albus-kernel.zip

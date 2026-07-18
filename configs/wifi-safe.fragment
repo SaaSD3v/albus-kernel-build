@@ -1,0 +1,6 @@
+# Disable netfilter configs that conflict with WiFi on albus
+# CONFIG_IP_SET is not set
+# CONFIG_IP_SET_HASH_IP is not set
+# CONFIG_IP_SET_HASH_NET is not set
+# CONFIG_NETFILTER_XT_SET is not set
+# CONFIG_NETFILTER_XT_MATCH_RECENT is not set

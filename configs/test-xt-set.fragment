@@ -1,0 +1,2 @@
+# Test fragment: test-xt-set.fragment
+CONFIG_NETFILTER_XT_SET=y
