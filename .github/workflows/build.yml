@@ -30,6 +30,8 @@ jobs:
         run: |
           make -C kernel O=$PWD/build ARCH=arm64 CROSS_COMPILE=$CROSS albus_defconfig
           kernel/scripts/kconfig/merge_config.sh -m -O $PWD/build $PWD/build/.config $PWD/configs/wifi-safe.fragment
+          chmod +x configs/remove-optional-firewall.fragment
+          configs/remove-optional-firewall.fragment build/.config
           make -C kernel O=$PWD/build ARCH=arm64 olddefconfig
           make -C kernel O=$PWD/build ARCH=arm64 CROSS_COMPILE=$CROSS -j$(nproc) Image.gz
 
@@ -63,9 +65,8 @@ jobs:
           mv kernel kernel_orig
 
           echo "=== Recompressing kernel with max compression ==="
-          gzip -9 -c build/arch/arm64/boot/Image.gz > kernel.gz
-          mv kernel.gz kernel
-          echo "New kernel (recompressed): $(wc -c < kernel) bytes"
+          gzip -9 -c build/arch/arm64/boot/Image.gz > kernel
+          echo "New kernel (gzip -9): $(wc -c < kernel) bytes"
 
           echo "=== Repacking TWRP ==="
           ./magiskboot repack twrp-src/twrp.img twrp-patched.img
