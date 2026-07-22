@@ -13,7 +13,7 @@ jobs:
       - name: Install deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y bc bison flex libssl-dev make libncurses-dev zip libtinfo-dev
+          sudo apt-get install -y bc bison flex libssl-dev make libncurses-dev zip libtinfo-dev unzip
           sudo ln -sf /usr/lib/x86_64-linux-gnu/libtinfo.so.6 /usr/lib/x86_64-linux-gnu/libtinfo.so.5
 
       - name: Clone kernel
@@ -41,7 +41,37 @@ jobs:
           cd anykernel
           zip -r9 ../albus-kernel.zip * -x '*.git*'
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload kernel zip
+        uses: actions/upload-artifact@v4
         with:
           name: albus-kernel
           path: albus-kernel.zip
+
+      - name: Get magiskboot
+        run: |
+          wget -q "https://github.com/topjohnwu/Magisk/releases/download/v28.1/Magisk-v28.1.apk" -O magisk.apk
+          mkdir -p magisk-extracted
+          unzip -o -q magisk.apk -d magisk-extracted
+          cp magisk-extracted/lib/x86_64/libmagiskboot.so magiskboot
+          chmod +x magiskboot
+
+      - name: Patch TWRP with compiled kernel
+        run: |
+          echo "=== Unpacking TWRP ==="
+          ./magiskboot unpack twrp-src/twrp.img
+          echo "Original kernel: $(wc -c < kernel) bytes"
+          mv kernel kernel_orig
+
+          echo "=== Replacing kernel ==="
+          cp build/arch/arm64/boot/Image.gz kernel
+          echo "New kernel: $(wc -c < kernel) bytes"
+
+          echo "=== Repacking TWRP ==="
+          ./magiskboot repack twrp-src/twrp.img twrp-patched.img
+          echo "Patched TWRP: $(wc -c < twrp-patched.img) bytes"
+
+      - name: Upload patched TWRP
+        uses: actions/upload-artifact@v4
+        with:
+          name: twrp-patched
+          path: twrp-patched.img
