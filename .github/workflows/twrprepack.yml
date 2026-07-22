@@ -25,19 +25,19 @@ jobs:
 
       - name: Unpack TWRP boot image
         run: |
-          echo "TWRP size: $(wc -c < twrp/twrp.img) bytes"
-          ./magiskboot unpack twrp/twrp.img
+          echo "TWRP size: $(wc -c < twrp-src/twrp.img) bytes"
+          ./magiskboot unpack twrp-src/twrp.img
           echo "Original kernel: $(wc -c < kernel) bytes"
           mv kernel kernel_orig
 
       - name: Replace kernel
         run: |
-          cp kernel/Image.gz kernel
+          cp new-kernel/Image.gz kernel
           echo "New kernel: $(wc -c < kernel) bytes"
 
       - name: Repack boot image
         run: |
-          ./magiskboot repack twrp/twrp.img twrp-patched.img
+          ./magiskboot repack twrp-src/twrp.img twrp-patched.img
           echo "Patched image: $(wc -c < twrp-patched.img) bytes"
 
       - name: Upload patched TWRP
