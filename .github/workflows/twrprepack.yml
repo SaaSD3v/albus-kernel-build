@@ -1,0 +1,84 @@
+name: TWRP Kernel Repack
+
+on:
+  workflow_dispatch:
+    inputs:
+      twrp_url:
+        description: 'Direct download URL for TWRP .img file'
+        required: true
+        type: string
+      kernel_artifact:
+        description: 'Use kernel from latest build artifact?'
+        required: false
+        type: boolean
+        default: true
+      kernel_url:
+        description: 'Direct download URL for kernel (Image.gz / Image.gz-dtb) - only used if artifact is false'
+        required: false
+        type: string
+
+jobs:
+  repack:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y unzip
+
+      - name: Get magiskboot from Magisk APK
+        run: |
+          wget -q "https://github.com/topjohnwu/Magisk/releases/download/v28.1/Magisk-v28.1.apk" -O magisk.apk
+          mkdir -p magisk-extracted
+          unzip -o -q magisk.apk -d magisk-extracted
+          cp magisk-extracted/lib/x86_64/libmagiskboot.so magiskboot
+          chmod +x magiskboot
+
+      - name: Download TWRP image
+        run: |
+          wget -q "${{ inputs.twrp_url }}" -O twrp.img
+          echo "TWRP size: $(wc -c < twrp.img) bytes"
+
+      - name: Download kernel from build artifact
+        if: ${{ inputs.kernel_artifact == true }}
+        uses: actions/download-artifact@v4
+        with:
+          name: albus-kernel
+          path: kernel-artifact
+
+      - name: Extract kernel from artifact
+        if: ${{ inputs.kernel_artifact == true }}
+        run: |
+          cd kernel-artifact
+          unzip -o -q albus-kernel.zip
+          cp Image.gz ../kernel.img
+          cd ..
+          echo "Kernel from artifact: $(wc -c < kernel.img) bytes"
+
+      - name: Download kernel from URL
+        if: ${{ inputs.kernel_artifact == false }}
+        run: |
+          wget -q "${{ inputs.kernel_url }}" -O kernel.img
+          echo "Kernel from URL: $(wc -c < kernel.img) bytes"
+
+      - name: Unpack TWRP boot image
+        run: |
+          ./magiskboot unpack twrp.img
+          echo "Original kernel: $(wc -c < kernel) bytes"
+          mv kernel kernel_orig
+
+      - name: Replace kernel
+        run: |
+          cp kernel.img kernel
+          echo "New kernel: $(wc -c < kernel) bytes"
+
+      - name: Repack boot image
+        run: |
+          ./magiskboot repack twrp.img twrp-patched.img
+          echo "Patched image: $(wc -c < twrp-patched.img) bytes"
+
+      - name: Upload patched TWRP
+        uses: actions/upload-artifact@v4
+        with:
+          name: twrp-patched
+          path: twrp-patched.img
