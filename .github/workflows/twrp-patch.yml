@@ -1,0 +1,45 @@
+name: TWRP Patch
+
+on:
+  workflow_dispatch:
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get magiskboot
+        run: |
+          wget -q "https://github.com/topjohnwu/Magisk/releases/download/v28.1/Magisk-v28.1.apk" -O magisk.apk
+          mkdir -p magisk-extracted
+          unzip -o -q magisk.apk -d magisk-extracted
+          cp magisk-extracted/lib/x86_64/libmagiskboot.so magiskboot
+          chmod +x magiskboot
+
+      - name: Patch TWRP
+        run: |
+          mkdir -p twrp-work
+          cd twrp-work
+
+          echo "=== Unpacking TWRP ==="
+          ../magiskboot unpack ../twrp-src/twrp.img
+          echo "Original kernel: $(wc -c < kernel) bytes"
+          mv kernel kernel_orig
+
+          echo "=== Replacing kernel ==="
+          gzip -9 -c ../twrp-kernel/Image.gz > kernel
+          echo "New kernel: $(wc -c < kernel) bytes"
+
+          echo "=== Repacking TWRP ==="
+          ../magiskboot repack ../twrp-src/twrp.img ../twrp-patched.img
+          cd ..
+          echo "Patched TWRP: $(wc -c < twrp-patched.img) bytes"
+          echo "Recovery partition limit: 21073920 bytes"
+
+      - name: Upload patched TWRP
+        uses: actions/upload-artifact@v4
+        with:
+          name: twrp-patched
+          path: twrp-patched.img
