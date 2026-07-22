@@ -1,0 +1,47 @@
+name: TWRP Kernel Repack
+
+on:
+  workflow_dispatch:
+
+jobs:
+  repack:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y unzip
+
+      - name: Get magiskboot from Magisk APK
+        run: |
+          wget -q "https://github.com/topjohnwu/Magisk/releases/download/v28.1/Magisk-v28.1.apk" -O magisk.apk
+          mkdir -p magisk-extracted
+          unzip -o -q magisk.apk -d magisk-extracted
+          cp magisk-extracted/lib/x86_64/libmagiskboot.so magiskboot
+          chmod +x magiskboot
+
+      - name: Unpack TWRP boot image
+        run: |
+          echo "TWRP size: $(wc -c < twrp-src/twrp.img) bytes"
+          ./magiskboot unpack twrp-src/twrp.img
+          echo "Original kernel: $(wc -c < kernel) bytes"
+          mv kernel kernel_orig
+
+      - name: Replace kernel
+        run: |
+          cp new-kernel/Image.gz kernel
+          echo "New kernel: $(wc -c < kernel) bytes"
+
+      - name: Repack boot image
+        run: |
+          ./magiskboot repack twrp-src/twrp.img twrp-patched.img
+          echo "Patched image: $(wc -c < twrp-patched.img) bytes"
+
+      - name: Upload patched TWRP
+        uses: actions/upload-artifact@v4
+        with:
+          name: twrp-patched
+          path: twrp-patched.img
