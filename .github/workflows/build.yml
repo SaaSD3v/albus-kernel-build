@@ -59,17 +59,21 @@ jobs:
 
       - name: Patch TWRP with compiled kernel
         run: |
+          mkdir -p twrp-work
+          cd twrp-work
+
           echo "=== Unpacking TWRP ==="
-          ./magiskboot unpack twrp-src/twrp.img
+          ../magiskboot unpack ../twrp-src/twrp.img
           echo "Original kernel: $(wc -c < kernel) bytes"
           mv kernel kernel_orig
 
-          echo "=== Recompressing kernel with max compression ==="
-          gzip -9 -c build/arch/arm64/boot/Image.gz > kernel
-          echo "New kernel (gzip -9): $(wc -c < kernel) bytes"
+          echo "=== Replacing kernel ==="
+          gzip -9 -c ../build/arch/arm64/boot/Image.gz > kernel
+          echo "New kernel: $(wc -c < kernel) bytes"
 
           echo "=== Repacking TWRP ==="
-          ./magiskboot repack twrp-src/twrp.img twrp-patched.img
+          ../magiskboot repack ../twrp-src/twrp.img ../twrp-patched.img
+          cd ..
           echo "Patched TWRP: $(wc -c < twrp-patched.img) bytes"
           echo "Recovery partition limit: 21073920 bytes"
 
