@@ -1,0 +1,32 @@
+name: Build Albus TWRP (Prebuilt)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download recovery.img from previous successful build
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          workflow: analyze-recovery.yml
+          name: recovery-analysis
+          path: analysis/
+
+      - name: Prepare recovery image
+        run: |
+          # The recovery.img from twrp-src/ already has CrystalTWRP kernel + DroidSpaces
+          # Just copy it as the output
+          cp twrp-src/twrp.img recovery-albus.img
+          echo "Recovery image: $(wc -c < recovery-albus.img) bytes"
+          echo "Recovery partition limit: 21073920 bytes"
+
+      - name: Upload recovery image
+        uses: actions/upload-artifact@v4
+        with:
+          name: recovery-albus
+          path: recovery-albus.img
