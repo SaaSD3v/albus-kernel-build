@@ -1,0 +1,78 @@
+name: Analyze Recovery
+
+on:
+  workflow_dispatch:
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get magiskboot
+        run: |
+          wget -q "https://github.com/topjohnwu/Magisk/releases/download/v28.1/Magisk-v28.1.apk" -O magisk.apk
+          mkdir -p magisk-extracted
+          unzip -o -q magisk.apk -d magisk-extracted
+          cp magisk-extracted/lib/x86_64/libmagiskboot.so magiskboot
+          chmod +x magiskboot
+
+      - name: Unpack and analyze recovery
+        run: |
+          mkdir -p analysis
+          cd analysis
+
+          echo "=== Unpacking recovery.img ==="
+          ../magiskboot unpack ../twrp-src/twrp.img
+
+          echo ""
+          echo "=== BOOT IMAGE HEADER ==="
+          ../magiskboot unpack ../twrp-src/twrp.img 2>&1 | head -20
+
+          echo ""
+          echo "=== FILE SIZES ==="
+          echo "Kernel: $(wc -c < kernel) bytes"
+          echo "Ramdisk: $(wc -c < ramdisk.cpio) bytes"
+          echo "Extra (DTB): $(wc -c < extra) bytes 2>/dev/null || echo 'N/A'"
+
+          echo ""
+          echo "=== KERNEL FORMAT ==="
+          file kernel
+          hexdump -C kernel | head -5
+
+          echo ""
+          echo "=== KERNEL COMPRESSION ==="
+          if file kernel | grep -q "gzip"; then
+            echo "Compression: gzip"
+            gzip -l kernel 2>/dev/null || echo "gzip -l failed"
+          elif file kernel | grep -q "LZMA"; then
+            echo "Compression: LZMA"
+          elif file kernel | grep -q "XZ"; then
+            echo "Compression: XZ"
+          else
+            echo "Compression: unknown"
+          fi
+
+          echo ""
+          echo "=== RAMDISK FORMAT ==="
+          file ramdisk.cpio
+
+          echo ""
+          echo "=== EXTRA/DTB ==="
+          if [ -f extra ]; then
+            file extra
+            echo "Extra size: $(wc -c < extra) bytes"
+          else
+            echo "No extra file found"
+          fi
+
+          echo ""
+          echo "=== KERNEL STRINGS (first 100 relevant) ==="
+          strings kernel | grep -E "(Linux version|CONFIG_|DroidSpaces|liquidSaaS|channel|albus)" | head -50
+
+      - name: Upload analysis
+        uses: actions/upload-artifact@v4
+        with:
+          name: recovery-analysis
+          path: analysis/
