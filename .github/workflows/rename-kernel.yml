@@ -1,0 +1,45 @@
+name: Rename Kernel
+
+on:
+  workflow_dispatch:
+
+jobs:
+  rename:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get magiskboot
+        run: |
+          wget -q "https://github.com/topjohnwu/Magisk/releases/download/v28.1/Magisk-v28.1.apk" -O magisk.apk
+          mkdir -p magisk-extracted
+          unzip -o -q magisk.apk -d magisk-extracted
+          cp magisk-extracted/lib/x86_64/libmagiskboot.so magiskboot
+          chmod +x magiskboot
+
+      - name: Unpack, rename kernel, repack
+        run: |
+          mkdir -p work
+          cd work
+
+          # Unpack
+          ../magiskboot unpack ../twrp-src/twrp.img
+
+          # Rename kernel LOCALVERSION
+          sed -i 's/CrystalTWRP-albus/twrp-albus\x00\x00\x00\x00\x00\x00\x00\x00/g' kernel
+
+          # Verify rename
+          echo "=== Kernel strings ==="
+          strings kernel | grep -E "(CrystalTWRP|twrp-albus)" | head -5
+
+          # Repack
+          ../magiskboot repack ../twrp-src/twrp.img ../recovery-renamed.img
+          cd ..
+          echo "Recovery size: $(wc -c < recovery-renamed.img) bytes"
+
+      - name: Upload recovery
+        uses: actions/upload-artifact@v4
+        with:
+          name: recovery-renamed
+          path: recovery-renamed.img
