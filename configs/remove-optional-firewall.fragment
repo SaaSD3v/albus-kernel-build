@@ -1,0 +1,15 @@
+#!/bin/bash
+# remove-optional-firewall.fragment
+# Reverts Firewall commit df88924 flags only
+# Usage: ./remove-optional-firewall.fragment <defconfig_path>
+
+DEFCONFIG="$1"
+[ -z "$DEFCONFIG" ] && echo "Usage: $0 <defconfig_path>" && exit 1
+
+sed -i '/^CONFIG_IP_SET=y$/d' "$DEFCONFIG"
+sed -i '/^CONFIG_IP_SET_HASH_IP=y$/d' "$DEFCONFIG"
+sed -i '/^CONFIG_IP_SET_HASH_NET=y$/d' "$DEFCONFIG"
+sed -i '/^CONFIG_NETFILTER_XT_SET=y$/d' "$DEFCONFIG"
+sed -i '/^CONFIG_NETFILTER_XT_MATCH_RECENT=y$/d' "$DEFCONFIG"
+
+echo "Optional firewall flags removed from $DEFCONFIG"

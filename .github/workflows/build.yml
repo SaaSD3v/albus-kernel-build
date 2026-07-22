@@ -30,8 +30,8 @@ jobs:
         run: |
           make -C kernel O=$PWD/build ARCH=arm64 CROSS_COMPILE=$CROSS albus_defconfig
           kernel/scripts/kconfig/merge_config.sh -m -O $PWD/build $PWD/build/.config $PWD/configs/wifi-safe.fragment
-          chmod +x configs/remove-droidspaces.fragment
-          configs/remove-droidspaces.fragment build/.config
+          chmod +x configs/remove-optional-firewall.fragment
+          configs/remove-optional-firewall.fragment build/.config
           make -C kernel O=$PWD/build ARCH=arm64 olddefconfig
           make -C kernel O=$PWD/build ARCH=arm64 CROSS_COMPILE=$CROSS -j$(nproc) Image.gz
 
