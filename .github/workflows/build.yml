@@ -62,13 +62,15 @@ jobs:
           echo "Original kernel: $(wc -c < kernel) bytes"
           mv kernel kernel_orig
 
-          echo "=== Replacing kernel ==="
-          cp build/arch/arm64/boot/Image.gz kernel
-          echo "New kernel: $(wc -c < kernel) bytes"
+          echo "=== Recompressing kernel with max compression ==="
+          gzip -9 -c build/arch/arm64/boot/Image.gz > kernel.gz
+          mv kernel.gz kernel
+          echo "New kernel (recompressed): $(wc -c < kernel) bytes"
 
           echo "=== Repacking TWRP ==="
           ./magiskboot repack twrp-src/twrp.img twrp-patched.img
           echo "Patched TWRP: $(wc -c < twrp-patched.img) bytes"
+          echo "Recovery partition limit: 21073920 bytes"
 
       - name: Upload patched TWRP
         uses: actions/upload-artifact@v4
