@@ -1,0 +1,64 @@
+name: Build Kernel (Pinned Commit)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git bc bison flex libssl-dev make libncurses-dev zip unzip python3
+
+      - name: Clone pinned kernel commit
+        run: |
+          git init kernel
+          git -C kernel remote add origin https://github.com/SaaSD3v/android_kernel_motorola_msm8996.git
+          git -C kernel fetch --depth=1 origin 516086ce0637a9e820793695a4dd8e3ff43e055b
+          git -C kernel checkout --detach FETCH_HEAD
+
+      - name: Verify kernel version
+        run: |
+          cd kernel
+          VERSION=$(grep "^VERSION =" Makefile | awk '{print $3}')
+          PATCHLEVEL=$(grep "^PATCHLEVEL =" Makefile | awk '{print $3}')
+          SUBLEVEL=$(grep "^SUBLEVEL =" Makefile | awk '{print $3}')
+          echo "Kernel: $VERSION.$PATCHLEVEL.$SUBLEVEL"
+          [ "$VERSION" = "3" ] && [ "$PATCHLEVEL" = "18" ] && [ "$SUBLEVEL" = "71" ] || exit 1
+
+      - name: Clone GCC 4.9
+        run: |
+          git clone --depth=1 --branch android-8.1.0_r42 https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 gcc49
+
+      - name: Validate toolchain
+        run: |
+          chmod +x gcc49/bin/* 2>/dev/null || true
+          gcc49/bin/aarch64-linux-android-gcc --version
+
+      - name: Build config
+        run: |
+          cd kernel
+          mkdir -p out
+          make O="$PWD/out" ARCH=arm64 albus_defconfig
+          make O="$PWD/out" ARCH=arm64 olddefconfig
+
+      - name: Compile kernel
+        run: |
+          cd kernel
+          export CROSS_COMPILE="$GITHUB_WORKSPACE/gcc49/bin/aarch64-linux-android-"
+          export HOSTLDFLAGS="-Wl,-z,muldefs"
+          make -j$(nproc) O="$PWD/out" ARCH=arm64 CROSS_COMPILE="$CROSS_COMPILE" HOSTLDFLAGS="$HOSTLDFLAGS" Image.gz
+
+      - name: Verify Image.gz
+        run: ls -la kernel/out/arch/arm64/boot/Image.gz
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: albus-kernel-pinned
+          path: kernel/out/arch/arm64/boot/Image.gz
