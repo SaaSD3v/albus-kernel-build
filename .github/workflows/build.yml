@@ -67,7 +67,6 @@ jobs:
           cd anykernel
           rm -f *.zip
           cp ../kernel/out/arch/arm64/boot/Image.gz .
-          cp ../kernel/out/arch/arm64/boot/dt.img .
           sed -i 's|^kernel.string=.*|kernel.string=albus-kernel|' anykernel.sh
           sed -i 's|^do.devicecheck=.*|do.devicecheck=1|' anykernel.sh
           sed -i 's|^device.name1=.*|device.name1=albus|' anykernel.sh
