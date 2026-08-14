@@ -9,11 +9,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        variant:
-          - baseline
-          - userns
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -48,88 +43,23 @@ jobs:
       - name: Build config
         run: |
           cd kernel
-          mkdir -p "out/${{ matrix.variant }}"
+          mkdir -p out
 
-          make O="$PWD/out/${{ matrix.variant }}" ARCH=arm64 albus_defconfig
-          make O="$PWD/out/${{ matrix.variant }}" ARCH=arm64 olddefconfig
-
-          CFG="out/${{ matrix.variant }}/.config"
-
-          for opt in NAMESPACES UTS_NS IPC_NS PID_NS NET_NS TUN IKCONFIG IKCONFIG_PROC ARCH_MSM8953; do
-            sed -i "s/^# CONFIG_${opt} is not set$/CONFIG_${opt}=y/" "$CFG"
-            sed -i "s/^CONFIG_${opt}=.*/CONFIG_${opt}=y/" "$CFG"
-            grep -q "^CONFIG_${opt}=y" "$CFG" || echo "CONFIG_${opt}=y" >> "$CFG"
-          done
-
-          sed -i 's/^CONFIG_ARCH_MSM8996=.*/# CONFIG_ARCH_MSM8996 is not set/' "$CFG"
-          sed -i 's/^CONFIG_LOCALVERSION_AUTO=.*/# CONFIG_LOCALVERSION_AUTO is not set/' "$CFG"
-          sed -i 's/^CONFIG_LOCALVERSION=.*/CONFIG_LOCALVERSION=""/' "$CFG"
-          grep -q '^CONFIG_LOCALVERSION=""' "$CFG" || echo 'CONFIG_LOCALVERSION=""' >> "$CFG"
-
-          if [ "${{ matrix.variant }}" = "baseline" ]; then
-            sed -i 's/^CONFIG_USER_NS=.*/# CONFIG_USER_NS is not set/' "$CFG"
-            grep -q 'CONFIG_USER_NS' "$CFG" || echo '# CONFIG_USER_NS is not set' >> "$CFG"
-          else
-            sed -i 's/^# CONFIG_USER_NS is not set$/CONFIG_USER_NS=y/' "$CFG"
-            sed -i 's/^CONFIG_USER_NS=.*/CONFIG_USER_NS=y/' "$CFG"
-            grep -q '^CONFIG_USER_NS=y' "$CFG" || echo 'CONFIG_USER_NS=y' >> "$CFG"
-          fi
-
-          echo "=== Final .config summary ==="
-          grep -E '^CONFIG_(LOCALVERSION|NAMESPACES|UTS_NS|IPC_NS|PID_NS|NET_NS|TUN|USER_NS|IKCONFIG|IKCONFIG_PROC|ARCH_MSM8953)=' "$CFG" || true
-          grep '# CONFIG_USER_NS is not set' "$CFG" || true
-          grep '# CONFIG_LOCALVERSION_AUTO is not set' "$CFG" || true
-          grep '# CONFIG_ARCH_MSM8996 is not set' "$CFG" || true
-
-      - name: Validate .config
-        run: |
-          cd kernel
-          CONFIG="out/${{ matrix.variant }}/.config"
-          echo "=== Validating ${{ matrix.variant }} .config ==="
-
-          check() {
-            local line="$1"
-            if ! grep -qF "$line" "$CONFIG"; then
-              echo "ERROR: '$line' not found"
-              exit 1
-            fi
-            echo "OK: $line"
-          }
-
-          check 'CONFIG_LOCALVERSION=""'
-          check 'CONFIG_NAMESPACES=y'
-          check 'CONFIG_UTS_NS=y'
-          check 'CONFIG_IPC_NS=y'
-          check 'CONFIG_PID_NS=y'
-          check 'CONFIG_NET_NS=y'
-          check 'CONFIG_TUN=y'
-          check 'CONFIG_IKCONFIG=y'
-          check 'CONFIG_IKCONFIG_PROC=y'
-          check 'CONFIG_ARCH_MSM8953=y'
-
-          grep -q '^# CONFIG_LOCALVERSION_AUTO is not set$' "$CONFIG" || { echo "ERROR: LOCALVERSION_AUTO"; exit 1; }
-          grep -q '^# CONFIG_ARCH_MSM8996 is not set$' "$CONFIG" || { echo "ERROR: MSM8996"; exit 1; }
-
-          if [ "${{ matrix.variant }}" = "baseline" ]; then
-            grep -q '^# CONFIG_USER_NS is not set$' "$CONFIG" || { echo "ERROR: USER_NS off"; exit 1; }
-          else
-            grep -q '^CONFIG_USER_NS=y$' "$CONFIG" || { echo "ERROR: USER_NS on"; exit 1; }
-          fi
-
-          echo "Config validation passed"
+          make O="$PWD/out" ARCH=arm64 albus_defconfig
+          make O="$PWD/out" ARCH=arm64 olddefconfig
 
       - name: Compile kernel
         run: |
           cd kernel
           export CROSS_COMPILE="$GITHUB_WORKSPACE/gcc49/bin/aarch64-linux-android-"
           export HOSTLDFLAGS="-Wl,-z,muldefs"
-          make -j$(nproc) O="$PWD/out/${{ matrix.variant }}" ARCH=arm64 CROSS_COMPILE="$CROSS_COMPILE" HOSTLDFLAGS="$HOSTLDFLAGS" Image.gz
+          make -j$(nproc) O="$PWD/out" ARCH=arm64 CROSS_COMPILE="$CROSS_COMPILE" HOSTLDFLAGS="$HOSTLDFLAGS" Image.gz
 
       - name: Verify Image.gz
-        run: ls -la kernel/out/${{ matrix.variant }}/arch/arm64/boot/Image.gz
+        run: ls -la kernel/out/arch/arm64/boot/Image.gz
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: albus-${{ matrix.variant }}
-          path: kernel/out/${{ matrix.variant }}/arch/arm64/boot/Image.gz
+          name: albus-kernel
+          path: kernel/out/arch/arm64/boot/Image.gz
