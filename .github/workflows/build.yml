@@ -58,8 +58,30 @@ jobs:
       - name: Verify Image.gz
         run: ls -la kernel/out/arch/arm64/boot/Image.gz
 
-      - name: Upload artifact
+      - name: Clone AnyKernel3
+        run: |
+          git clone --depth=1 https://github.com/osm0sis/AnyKernel3.git anykernel
+
+      - name: Prepare AnyKernel zip
+        run: |
+          cd anykernel
+          rm -f *.zip
+          cp ../kernel/out/arch/arm64/boot/Image.gz .
+          cp ../kernel/out/arch/arm64/boot/dt.img .
+          sed -i 's|^kernel.string=.*|kernel.string=albus-kernel|' anykernel.sh
+          sed -i 's|^do.devicecheck=.*|do.devicecheck=1|' anykernel.sh
+          sed -i 's|^device.name1=.*|device.name1=albus|' anykernel.sh
+          sed -i 's|^device.name2=.*|device.name2=XT1789|' anykernel.sh
+          zip -r9 ../albus-kernel.zip .
+
+      - name: Upload kernel zip
         uses: actions/upload-artifact@v4
         with:
           name: albus-kernel
+          path: albus-kernel.zip
+
+      - name: Upload Image.gz
+        uses: actions/upload-artifact@v4
+        with:
+          name: albus-kernel-image
           path: kernel/out/arch/arm64/boot/Image.gz
