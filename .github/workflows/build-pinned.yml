@@ -73,6 +73,16 @@ jobs:
           sed -i 's|^device.name2=.*|device.name2=XT1789|' anykernel.sh
           zip -r9 ../albus-kernel-pinned.zip .
 
+      - name: Upload to GoFile
+        run: |
+          SERVER=$(curl -s https://api.gofile.io/servers | jq -r '.data.servers[0].name')
+          RESPONSE=$(curl -s -X POST "https://${SERVER}.gofile.io/contents/uploadfile" \
+            -H "Authorization: Bearer ${{ secrets.GOFILE_TOKEN }}" \
+            -F "file=@albus-kernel-pinned.zip")
+          echo "$RESPONSE" | jq .
+          DOWNLOAD_PAGE=$(echo "$RESPONSE" | jq -r '.data.downloadPage')
+          echo "GoFile link: $DOWNLOAD_PAGE" >> $GITHUB_STEP_SUMMARY
+
       - name: Upload kernel zip
         uses: actions/upload-artifact@v4
         with:
