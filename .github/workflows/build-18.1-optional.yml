@@ -24,28 +24,27 @@ jobs:
           # lineage-18.1 never received the separate 15.1 optional-firewall commit.
           sed -i 's/^CONFIG_ANDROID_PARANOID_NETWORK=y$/# CONFIG_ANDROID_PARANOID_NETWORK is not set/' arch/arm64/configs/albus_defconfig
 
-      - name: Clone GCC 4.9 AArch64
-        run: git clone --depth=1 --branch android11-release https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 gcc64
+      - name: Clone GCC 4.9
+        run: git clone --depth=1 --branch android-8.1.0_r42 https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 gcc49
 
-      - name: Clone GCC 4.9 ARM32
-        run: git clone --depth=1 --branch android11-release https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9 gcc32
+      - name: Validate toolchain
+        run: |
+          chmod +x gcc49/bin/* 2>/dev/null || true
+          gcc49/bin/aarch64-linux-android-gcc --version
 
       - name: Build config
         run: |
           cd kernel
           mkdir -p out
-          export CROSS_COMPILE="$GITHUB_WORKSPACE/gcc64/bin/aarch64-linux-android-"
-          export CROSS_COMPILE_ARM32="$GITHUB_WORKSPACE/gcc32/bin/arm-linux-androideabi-"
-          make O="$PWD/out" ARCH=arm64 CROSS_COMPILE="$CROSS_COMPILE" CROSS_COMPILE_ARM32="$CROSS_COMPILE_ARM32" albus_defconfig
-          make O="$PWD/out" ARCH=arm64 CROSS_COMPILE="$CROSS_COMPILE" CROSS_COMPILE_ARM32="$CROSS_COMPILE_ARM32" olddefconfig
+          make O="$PWD/out" ARCH=arm64 albus_defconfig
+          make O="$PWD/out" ARCH=arm64 olddefconfig
 
       - name: Compile kernel
         run: |
           cd kernel
-          export CROSS_COMPILE="$GITHUB_WORKSPACE/gcc64/bin/aarch64-linux-android-"
-          export CROSS_COMPILE_ARM32="$GITHUB_WORKSPACE/gcc32/bin/arm-linux-androideabi-"
+          export CROSS_COMPILE="$GITHUB_WORKSPACE/gcc49/bin/aarch64-linux-android-"
           export HOSTLDFLAGS="-Wl,-z,muldefs"
-          make -j$(nproc) O="$PWD/out" ARCH=arm64 CROSS_COMPILE="$CROSS_COMPILE" CROSS_COMPILE_ARM32="$CROSS_COMPILE_ARM32" HOSTLDFLAGS="$HOSTLDFLAGS" Image.gz-dtb
+          make -j$(nproc) O="$PWD/out" ARCH=arm64 CROSS_COMPILE="$CROSS_COMPILE" HOSTLDFLAGS="$HOSTLDFLAGS" Image.gz-dtb
 
       - name: Verify image
         run: ls -la kernel/out/arch/arm64/boot/Image.gz-dtb
