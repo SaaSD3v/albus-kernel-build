@@ -1,0 +1,88 @@
+name: Build Albus Kernel 18.1 (NO-KSU OPTIONAL)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git wget curl jq bc bison flex libssl-dev make libncurses-dev zip unzip python3
+
+      - name: Clone pre-KSU kernel baseline
+        run: |
+          git init kernel
+          git -C kernel remote add origin https://github.com/SaaSD3v/android_kernel_motorola_msm8996.git
+          git -C kernel fetch --depth=1 origin 03f07549168a1552fed29afb6604a50e7428e3f1
+          git -C kernel checkout --detach FETCH_HEAD
+
+      - name: Keep branch optional set removed and disable paranoid network
+        run: |
+          cd kernel
+          # lineage-18.1 never received the separate 15.1 optional-firewall commit.
+          sed -i 's/^CONFIG_ANDROID_PARANOID_NETWORK=y$/# CONFIG_ANDROID_PARANOID_NETWORK is not set/' arch/arm64/configs/albus_defconfig
+
+      - name: Clone GCC 4.9 AArch64
+        run: git clone --depth=1 --branch android11-release https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 gcc64
+
+      - name: Clone GCC 4.9 ARM32
+        run: git clone --depth=1 --branch android11-release https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9 gcc32
+
+      - name: Build config
+        run: |
+          cd kernel
+          mkdir -p out
+          export CROSS_COMPILE="$GITHUB_WORKSPACE/gcc64/bin/aarch64-linux-android-"
+          export CROSS_COMPILE_ARM32="$GITHUB_WORKSPACE/gcc32/bin/arm-linux-androideabi-"
+          make O="$PWD/out" ARCH=arm64 CROSS_COMPILE="$CROSS_COMPILE" CROSS_COMPILE_ARM32="$CROSS_COMPILE_ARM32" albus_defconfig
+          make O="$PWD/out" ARCH=arm64 CROSS_COMPILE="$CROSS_COMPILE" CROSS_COMPILE_ARM32="$CROSS_COMPILE_ARM32" olddefconfig
+
+      - name: Compile kernel
+        run: |
+          cd kernel
+          export CROSS_COMPILE="$GITHUB_WORKSPACE/gcc64/bin/aarch64-linux-android-"
+          export CROSS_COMPILE_ARM32="$GITHUB_WORKSPACE/gcc32/bin/arm-linux-androideabi-"
+          export HOSTLDFLAGS="-Wl,-z,muldefs"
+          make -j$(nproc) O="$PWD/out" ARCH=arm64 CROSS_COMPILE="$CROSS_COMPILE" CROSS_COMPILE_ARM32="$CROSS_COMPILE_ARM32" HOSTLDFLAGS="$HOSTLDFLAGS" Image.gz-dtb
+
+      - name: Verify image
+        run: ls -la kernel/out/arch/arm64/boot/Image.gz-dtb
+
+      - name: Clone AnyKernel3
+        run: git clone --depth=1 https://github.com/osm0sis/AnyKernel3.git anykernel
+
+      - name: Prepare AnyKernel zip
+        run: |
+          cd anykernel
+          rm -f *.zip
+          cp ../kernel/out/arch/arm64/boot/Image.gz-dtb .
+          sed -i 's|^kernel.string=.*|kernel.string=albus-kernel-18.1-no-ksu-optional|' anykernel.sh
+          sed -i 's|^do.devicecheck=.*|do.devicecheck=1|' anykernel.sh
+          sed -i 's|^device.name1=.*|device.name1=albus|' anykernel.sh
+          sed -i 's|^device.name2=.*|device.name2=XT1789|' anykernel.sh
+          zip -r9 ../albus-kernel-18.1-no-ksu-optional.zip .
+
+      - name: Upload to GoFile
+        env:
+          GOFILE_TOKEN: ${{ secrets.GOFILE_TOKEN }}
+        run: |
+          SERVER=$(curl -fsSL https://api.gofile.io/servers | jq -r '.data.servers[0].name')
+          RESPONSE=$(curl -fsSL -X POST "https://${SERVER}.gofile.io/contents/uploadfile" \
+            -H "Authorization: Bearer ${GOFILE_TOKEN}" \
+            -F "file=@albus-kernel-18.1-no-ksu-optional.zip")
+          echo "$RESPONSE" | jq .
+          DOWNLOAD_PAGE=$(echo "$RESPONSE" | jq -r '.data.downloadPage')
+          test -n "$DOWNLOAD_PAGE" && test "$DOWNLOAD_PAGE" != "null"
+          echo "GoFile link: $DOWNLOAD_PAGE" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload kernel zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: albus-kernel-18.1-no-ksu-optional
+          path: albus-kernel-18.1-no-ksu-optional.zip
