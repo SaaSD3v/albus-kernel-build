@@ -1,0 +1,92 @@
+name: Build Albus Kernel 15.1 (OPTIONAL)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git wget curl jq bc bison flex libssl-dev make libncurses-dev zip unzip python3
+
+      - name: Clone kernel source with history
+        run: git clone --branch lineage-15.1 --single-branch https://github.com/SaaSD3v/android_kernel_motorola_msm8996.git kernel
+
+      - name: Remove optional firewall commit and disable paranoid network
+        run: |
+          cd kernel
+          git -c user.name=github-actions -c user.email=github-actions@github.com revert --no-commit df88924352e30ea00bf25b59ffc1624fca657e1e
+          sed -i 's/^CONFIG_ANDROID_PARANOID_NETWORK=y$/# CONFIG_ANDROID_PARANOID_NETWORK is not set/' arch/arm64/configs/albus_defconfig
+
+      - name: Verify kernel version
+        run: |
+          cd kernel
+          VERSION=$(grep "^VERSION =" Makefile | awk '{print $3}')
+          PATCHLEVEL=$(grep "^PATCHLEVEL =" Makefile | awk '{print $3}')
+          SUBLEVEL=$(grep "^SUBLEVEL =" Makefile | awk '{print $3}')
+          echo "Kernel: $VERSION.$PATCHLEVEL.$SUBLEVEL"
+          [ "$VERSION" = "3" ] && [ "$PATCHLEVEL" = "18" ] && [ "$SUBLEVEL" = "71" ] || exit 1
+
+      - name: Clone GCC 4.9
+        run: git clone --depth=1 --branch android-8.1.0_r42 https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 gcc49
+
+      - name: Validate toolchain
+        run: |
+          chmod +x gcc49/bin/* 2>/dev/null || true
+          gcc49/bin/aarch64-linux-android-gcc --version
+
+      - name: Build config
+        run: |
+          cd kernel
+          mkdir -p out
+          make O="$PWD/out" ARCH=arm64 albus_defconfig
+          make O="$PWD/out" ARCH=arm64 olddefconfig
+
+      - name: Compile kernel
+        run: |
+          cd kernel
+          export CROSS_COMPILE="$GITHUB_WORKSPACE/gcc49/bin/aarch64-linux-android-"
+          export HOSTLDFLAGS="-Wl,-z,muldefs"
+          make -j$(nproc) O="$PWD/out" ARCH=arm64 CROSS_COMPILE="$CROSS_COMPILE" HOSTLDFLAGS="$HOSTLDFLAGS" Image.gz
+
+      - name: Verify Image.gz
+        run: ls -la kernel/out/arch/arm64/boot/Image.gz
+
+      - name: Clone AnyKernel3
+        run: git clone --depth=1 https://github.com/osm0sis/AnyKernel3.git anykernel
+
+      - name: Prepare AnyKernel zip
+        run: |
+          cd anykernel
+          rm -f *.zip
+          cp ../kernel/out/arch/arm64/boot/Image.gz .
+          sed -i 's|^kernel.string=.*|kernel.string=albus-kernel-15.1-optional|' anykernel.sh
+          sed -i 's|^do.devicecheck=.*|do.devicecheck=1|' anykernel.sh
+          sed -i 's|^device.name1=.*|device.name1=albus|' anykernel.sh
+          sed -i 's|^device.name2=.*|device.name2=XT1789|' anykernel.sh
+          zip -r9 ../albus-kernel-15.1-optional.zip .
+
+      - name: Upload to GoFile
+        env:
+          GOFILE_TOKEN: ${{ secrets.GOFILE_TOKEN }}
+        run: |
+          SERVER=$(curl -fsSL https://api.gofile.io/servers | jq -r '.data.servers[0].name')
+          RESPONSE=$(curl -fsSL -X POST "https://${SERVER}.gofile.io/contents/uploadfile" \
+            -H "Authorization: Bearer ${GOFILE_TOKEN}" \
+            -F "file=@albus-kernel-15.1-optional.zip")
+          echo "$RESPONSE" | jq .
+          DOWNLOAD_PAGE=$(echo "$RESPONSE" | jq -r '.data.downloadPage')
+          test -n "$DOWNLOAD_PAGE" && test "$DOWNLOAD_PAGE" != "null"
+          echo "GoFile link: $DOWNLOAD_PAGE" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload kernel zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: albus-kernel-15.1-optional
+          path: albus-kernel-15.1-optional.zip
