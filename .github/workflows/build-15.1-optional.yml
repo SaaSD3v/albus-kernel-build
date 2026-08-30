@@ -18,10 +18,25 @@ jobs:
       - name: Clone kernel source with history
         run: git clone --branch lineage-15.1 --single-branch https://github.com/SaaSD3v/android_kernel_motorola_msm8996.git kernel
 
-      - name: Remove optional firewall commit and disable paranoid network
+      - name: Remove optional firewall configs and disable paranoid network
         run: |
           cd kernel
-          git -c user.name=github-actions -c user.email=github-actions@github.com revert --no-commit df88924352e30ea00bf25b59ffc1624fca657e1e
+          sed -i \
+            -e '/^CONFIG_IP_SET=y$/d' \
+            -e '/^CONFIG_IP_SET_HASH_IP=y$/d' \
+            -e '/^CONFIG_IP_SET_HASH_NET=y$/d' \
+            -e '/^CONFIG_NETFILTER_XT_SET=y$/d' \
+            -e '/^CONFIG_NETFILTER_XT_MATCH_RECENT=y$/d' \
+            -e '/^CONFIG_NETFILTER_XT_MATCH_LIMIT=y$/d' \
+            -e '/^CONFIG_NETFILTER_XT_MATCH_HASHLIMIT=y$/d' \
+            -e '/^CONFIG_NETFILTER_XT_MATCH_OWNER=y$/d' \
+            -e '/^CONFIG_NETFILTER_XT_MATCH_PKTTYPE=y$/d' \
+            -e '/^CONFIG_NETFILTER_XT_MATCH_MARK=y$/d' \
+            -e '/^CONFIG_NETFILTER_XT_TARGET_MARK=y$/d' \
+            -e '/^CONFIG_NETFILTER_NETLINK_QUEUE=y$/d' \
+            -e '/^CONFIG_NETFILTER_NETLINK_LOG=y$/d' \
+            -e '/^CONFIG_NETFILTER_XT_TARGET_NFLOG=y$/d' \
+            arch/arm64/configs/albus_defconfig
           sed -i 's/^CONFIG_ANDROID_PARANOID_NETWORK=y$/# CONFIG_ANDROID_PARANOID_NETWORK is not set/' arch/arm64/configs/albus_defconfig
 
       - name: Verify kernel version
