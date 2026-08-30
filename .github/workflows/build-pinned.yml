@@ -1,4 +1,4 @@
-name: Build Kernel (Pinned Commit)
+name: Build Albus Kernel 15.1 (NO-KSU)
 
 on:
   workflow_dispatch:
@@ -13,14 +13,19 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y git bc bison flex libssl-dev make libncurses-dev zip unzip python3
+          sudo apt-get install -y git wget curl jq bc bison flex libssl-dev make libncurses-dev zip unzip python3
 
-      - name: Clone pinned kernel commit
+      - name: Clone no-KSU kernel baseline
         run: |
           git init kernel
           git -C kernel remote add origin https://github.com/SaaSD3v/android_kernel_motorola_msm8996.git
           git -C kernel fetch --depth=1 origin 516086ce0637a9e820793695a4dd8e3ff43e055b
           git -C kernel checkout --detach FETCH_HEAD
+
+      - name: Disable Android paranoid network
+        run: |
+          cd kernel
+          sed -i 's/^CONFIG_ANDROID_PARANOID_NETWORK=y$/# CONFIG_ANDROID_PARANOID_NETWORK is not set/' arch/arm64/configs/albus_defconfig
 
       - name: Verify kernel version
         run: |
@@ -32,8 +37,7 @@ jobs:
           [ "$VERSION" = "3" ] && [ "$PATCHLEVEL" = "18" ] && [ "$SUBLEVEL" = "71" ] || exit 1
 
       - name: Clone GCC 4.9
-        run: |
-          git clone --depth=1 --branch android-8.1.0_r42 https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 gcc49
+        run: git clone --depth=1 --branch android-8.1.0_r42 https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 gcc49
 
       - name: Validate toolchain
         run: |
@@ -58,38 +62,40 @@ jobs:
         run: ls -la kernel/out/arch/arm64/boot/Image.gz
 
       - name: Clone AnyKernel3
-        run: |
-          git clone --depth=1 https://github.com/osm0sis/AnyKernel3.git anykernel
+        run: git clone --depth=1 https://github.com/osm0sis/AnyKernel3.git anykernel
 
       - name: Prepare AnyKernel zip
         run: |
           cd anykernel
           rm -f *.zip
           cp ../kernel/out/arch/arm64/boot/Image.gz .
-          sed -i 's|^kernel.string=.*|kernel.string=albus-kernel|' anykernel.sh
+          sed -i 's|^kernel.string=.*|kernel.string=albus-kernel-15.1-no-ksu|' anykernel.sh
           sed -i 's|^do.devicecheck=.*|do.devicecheck=1|' anykernel.sh
           sed -i 's|^device.name1=.*|device.name1=albus|' anykernel.sh
           sed -i 's|^device.name2=.*|device.name2=XT1789|' anykernel.sh
-          zip -r9 ../albus-kernel-pinned.zip .
+          zip -r9 ../albus-kernel-15.1-no-ksu.zip .
 
       - name: Upload to GoFile
+        env:
+          GOFILE_TOKEN: ${{ secrets.GOFILE_TOKEN }}
         run: |
-          SERVER=$(curl -s https://api.gofile.io/servers | jq -r '.data.servers[0].name')
-          RESPONSE=$(curl -s -X POST "https://${SERVER}.gofile.io/contents/uploadfile" \
-            -H "Authorization: Bearer ${{ secrets.GOFILE_TOKEN }}" \
-            -F "file=@albus-kernel-pinned.zip")
+          SERVER=$(curl -fsSL https://api.gofile.io/servers | jq -r '.data.servers[0].name')
+          RESPONSE=$(curl -fsSL -X POST "https://${SERVER}.gofile.io/contents/uploadfile" \
+            -H "Authorization: Bearer ${GOFILE_TOKEN}" \
+            -F "file=@albus-kernel-15.1-no-ksu.zip")
           echo "$RESPONSE" | jq .
           DOWNLOAD_PAGE=$(echo "$RESPONSE" | jq -r '.data.downloadPage')
-          echo "GoFile link: $DOWNLOAD_PAGE" >> $GITHUB_STEP_SUMMARY
+          test -n "$DOWNLOAD_PAGE" && test "$DOWNLOAD_PAGE" != "null"
+          echo "GoFile link: $DOWNLOAD_PAGE" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload kernel zip
         uses: actions/upload-artifact@v4
         with:
-          name: albus-kernel-pinned
-          path: albus-kernel-pinned.zip
+          name: albus-kernel-15.1-no-ksu
+          path: albus-kernel-15.1-no-ksu.zip
 
       - name: Upload Image.gz
         uses: actions/upload-artifact@v4
         with:
-          name: albus-kernel-pinned-image
+          name: albus-kernel-15.1-no-ksu-image
           path: kernel/out/arch/arm64/boot/Image.gz
