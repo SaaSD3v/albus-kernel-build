@@ -43,24 +43,21 @@ jobs:
           cd kernel
           export CROSS_COMPILE="$GITHUB_WORKSPACE/gcc49/bin/aarch64-linux-android-"
           export HOSTLDFLAGS="-Wl,-z,muldefs"
-          make -j$(nproc) O="$PWD/out" ARCH=arm64 CROSS_COMPILE="$CROSS_COMPILE" HOSTLDFLAGS="$HOSTLDFLAGS" Image.gz-dtb
+          make -j$(nproc) O="$PWD/out" ARCH=arm64 CROSS_COMPILE="$CROSS_COMPILE" HOSTLDFLAGS="$HOSTLDFLAGS" Image.gz
 
-      - name: Verify image
-        run: ls -la kernel/out/arch/arm64/boot/Image.gz-dtb
+      - name: Verify Image.gz
+        run: ls -la kernel/out/arch/arm64/boot/Image.gz
 
       - name: Clone AnyKernel3
         run: git clone --depth=1 https://github.com/osm0sis/AnyKernel3.git anykernel
 
-      - name: Prepare AnyKernel zip
+      - name: Prepare albus AnyKernel zip
         run: |
-          cd anykernel
-          rm -f *.zip
-          cp ../kernel/out/arch/arm64/boot/Image.gz-dtb .
-          sed -i 's|^kernel.string=.*|kernel.string=albus-kernel-18.1-normal|' anykernel.sh
-          sed -i 's|^do.devicecheck=.*|do.devicecheck=1|' anykernel.sh
-          sed -i 's|^device.name1=.*|device.name1=albus|' anykernel.sh
-          sed -i 's|^device.name2=.*|device.name2=XT1789|' anykernel.sh
-          zip -r9 ../albus-kernel-18.1-normal.zip .
+          bash .github/scripts/package-albus-anykernel.sh \
+            anykernel \
+            kernel/out/arch/arm64/boot/Image.gz \
+            "$GITHUB_WORKSPACE/albus-kernel-18.1-normal.zip" \
+            albus-kernel-18.1-normal
 
       - name: Upload to GoFile
         env:

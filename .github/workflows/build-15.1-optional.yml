@@ -76,16 +76,13 @@ jobs:
       - name: Clone AnyKernel3
         run: git clone --depth=1 https://github.com/osm0sis/AnyKernel3.git anykernel
 
-      - name: Prepare AnyKernel zip
+      - name: Prepare albus AnyKernel zip
         run: |
-          cd anykernel
-          rm -f *.zip
-          cp ../kernel/out/arch/arm64/boot/Image.gz .
-          sed -i 's|^kernel.string=.*|kernel.string=albus-kernel-15.1-optional|' anykernel.sh
-          sed -i 's|^do.devicecheck=.*|do.devicecheck=1|' anykernel.sh
-          sed -i 's|^device.name1=.*|device.name1=albus|' anykernel.sh
-          sed -i 's|^device.name2=.*|device.name2=XT1789|' anykernel.sh
-          zip -r9 ../albus-kernel-15.1-optional.zip .
+          bash .github/scripts/package-albus-anykernel.sh \
+            anykernel \
+            kernel/out/arch/arm64/boot/Image.gz \
+            "$GITHUB_WORKSPACE/albus-kernel-15.1-optional.zip" \
+            albus-kernel-15.1-optional
 
       - name: Upload to GoFile
         env:
