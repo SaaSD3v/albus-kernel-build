@@ -27,33 +27,41 @@ jobs:
           from pathlib import Path
 
           p = Path("arch/arm64/configs/albus_defconfig")
-          text = p.read_text()
-          needle = """# CONFIG_IP_SET is not set
-          CONFIG_IP_SET=y
-          CONFIG_IP_SET_HASH_IP=y
-          CONFIG_IP_SET_HASH_NET=y
-          CONFIG_NETFILTER_XT_SET=y
-          CONFIG_NETFILTER_XT_MATCH_RECENT=y
-          CONFIG_NETFILTER_XT_MATCH_LIMIT=y
-          CONFIG_NETFILTER_XT_MATCH_HASHLIMIT=y
-          CONFIG_NETFILTER_XT_MATCH_OWNER=y
-          CONFIG_NETFILTER_XT_MATCH_PKTTYPE=y
-          CONFIG_NETFILTER_XT_MATCH_MARK=y
-          CONFIG_NETFILTER_XT_TARGET_MARK=y
-          CONFIG_NETFILTER_NETLINK_QUEUE=y
-          CONFIG_NETFILTER_NETLINK_LOG=y
-          CONFIG_NETFILTER_XT_TARGET_NFLOG=y
-          # CONFIG_IP_VS is not set"""
-          replacement = """# CONFIG_IP_SET is not set
-          # CONFIG_IP_VS is not set"""
-          count = text.count(needle)
-          if count != 1:
-              raise SystemExit(f"expected exactly one optional firewall block, found {count}")
-          p.write_text(text.replace(needle, replacement, 1))
+          lines = p.read_text().splitlines(keepends=True)
+          start = [i for i, line in enumerate(lines) if line.rstrip("\n") == "# CONFIG_IP_SET is not set"]
+          end = [i for i, line in enumerate(lines) if line.rstrip("\n") == "# CONFIG_IP_VS is not set"]
+          if len(start) != 1 or len(end) != 1 or end[0] <= start[0]:
+              raise SystemExit(f"unexpected optional block anchors: IP_SET={start}, IP_VS={end}")
+          s, e = start[0], end[0]
+          block = lines[s + 1:e]
+          if len(block) != 14:
+              raise SystemExit(f"expected 14 lines in optional block, found {len(block)}")
+          required = {
+              "CONFIG_IP_SET=y",
+              "CONFIG_IP_SET_HASH_IP=y",
+              "CONFIG_IP_SET_HASH_NET=y",
+              "CONFIG_NETFILTER_XT_SET=y",
+              "CONFIG_NETFILTER_XT_MATCH_RECENT=y",
+              "CONFIG_NETFILTER_XT_MATCH_LIMIT=y",
+              "CONFIG_NETFILTER_XT_MATCH_HASHLIMIT=y",
+              "CONFIG_NETFILTER_XT_MATCH_PKTTYPE=y",
+              "CONFIG_NETFILTER_XT_MATCH_MARK=y",
+              "CONFIG_NETFILTER_XT_TARGET_MARK=y",
+              "CONFIG_NETFILTER_NETLINK_QUEUE=y",
+              "CONFIG_NETFILTER_NETLINK_LOG=y",
+              "CONFIG_NETFILTER_XT_TARGET_NFLOG=y",
+          }
+          actual = {line.rstrip("\n") for line in block}
+          missing = sorted(required - actual)
+          if missing:
+              raise SystemExit(f"optional block missing expected markers: {missing}")
+          if not any("CONFIG_NETFILTER_XT_MATCH_OWNER" in line for line in actual):
+              raise SystemExit("optional block has no MATCH_OWNER entry")
+          del lines[s + 1:e]
+          p.write_text("".join(lines))
           PY
           sed -i 's/^CONFIG_ANDROID_PARANOID_NETWORK=y$/# CONFIG_ANDROID_PARANOID_NETWORK is not set/' arch/arm64/configs/albus_defconfig
 
-          # Ensure only the block introduced by the optional commit was removed.
           grep -q '^# CONFIG_IP_SET is not set$' arch/arm64/configs/albus_defconfig
           ! grep -q '^CONFIG_IP_SET=y$' arch/arm64/configs/albus_defconfig
           grep -q '^# CONFIG_NETFILTER_XT_MATCH_RECENT is not set$' arch/arm64/configs/albus_defconfig
