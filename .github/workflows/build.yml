@@ -19,7 +19,7 @@ jobs:
           sudo apt-get install -y git wget curl jq bc bison flex libssl-dev make libncurses-dev zip unzip python3
 
       - name: Clone kernel source
-        run: git clone --branch lineage-15.1 --single-branch https://github.com/SaaSD3v/android_kernel_motorola_msm8996.git kernel
+        run: git clone --depth=1 --branch lineage-15.1 --single-branch https://github.com/SaaSD3v/android_kernel_motorola_msm8996.git kernel
 
       - name: Verify corrected paranoid networking source
         run: |
