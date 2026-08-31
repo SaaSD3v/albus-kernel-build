@@ -108,6 +108,9 @@ jobs:
           grep -q '^CONFIG_NETFILTER_NETLINK_LOG=y$' out/.config
           grep -q '^CONFIG_NETFILTER_XT_TARGET_NFLOG=y$' out/.config
 
+      - name: Verify container compatibility
+        run: bash .github/scripts/verify-albus-container-config.sh kernel/out/.config
+
       - name: Compile kernel
         run: |
           cd kernel
