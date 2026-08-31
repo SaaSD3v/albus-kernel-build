@@ -11,16 +11,16 @@ Automated kernel builds for Motorola Moto Z2 Play (albus).
 
 ### LineageOS 15.1
 
-| Variant | KSU | Optional flags | Use this when... |
+| Variant | KSU | Optional additions | Use this when... |
 |---|---|---|---|
-| **NORMAL** | ✅ | ✅ | You want the complete build. |
-| **OPTIONAL** | ✅ | ❌ | You want KSU without the optional flags. |
-| **NO-KSU** | ❌ | ✅ | You want the build without KSU. |
-| **NO-KSU OPTIONAL** | ❌ | ❌ | You want neither KSU nor the optional flags. |
+| **NORMAL** | ✅ | Included | You want the complete build. |
+| **OPTIONAL** | ✅ | Excluded | You want KSU without the optional additions. |
+| **NO-KSU** | ❌ | Included | You want the build without KSU. |
+| **NO-KSU OPTIONAL** | ❌ | Excluded | You want neither KSU nor the optional additions. |
 
 ### LineageOS 18.1
 
-| Variant | KSU | Optional flags | Use this when... |
+| Variant | KSU | Optional additions | Use this when... |
 |---|---|---|---|
 | **NORMAL** | ✅ | Branch default | You want the normal build with KSU. |
 | **OPTIONAL** | ✅ | Excluded where applicable | You want KSU without optional additions. |
@@ -29,10 +29,10 @@ Automated kernel builds for Motorola Moto Z2 Play (albus).
 
 ## Quick selection
 
-- KSU + optional flags: `NORMAL`
-- KSU + no optional flags: `OPTIONAL`
-- No KSU + optional flags: `NO-KSU`
-- No KSU + no optional flags: `NO-KSU OPTIONAL`
+- KSU + complete build: `NORMAL`
+- KSU + no optional additions: `OPTIONAL`
+- No KSU + complete build: `NO-KSU`
+- No KSU + no optional additions: `NO-KSU OPTIONAL`
 
 ## Installation
 
