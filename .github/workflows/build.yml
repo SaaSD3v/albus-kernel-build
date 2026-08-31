@@ -2,9 +2,6 @@ name: Build Albus Kernel 15.1 (NORMAL)
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
 
 jobs:
   build:
@@ -21,14 +18,21 @@ jobs:
       - name: Clone kernel source
         run: git clone --depth=1 --branch lineage-15.1 --single-branch https://github.com/SaaSD3v/android_kernel_motorola_msm8996.git kernel
 
-      - name: Verify corrected paranoid networking source
+      - name: Verify fixed source and NORMAL feature set
         run: |
+          set -euxo pipefail
           cd kernel
           grep -qx 'CONFIG_ANDROID_PARANOID_NETWORK=n' arch/arm64/configs/albus_defconfig
           grep -q '^#include <linux/android_aid.h>$' security/commoncap.c
           ! grep -q '^#ifdef CONFIG_ANDROID_PARANOID_NETWORK$' security/commoncap.c
           grep -q 'AID_NET_RAW' security/commoncap.c
           grep -q 'AID_NET_ADMIN' security/commoncap.c
+          grep -q '^CONFIG_KSU=y$' arch/arm64/configs/albus_defconfig
+          grep -q '^CONFIG_IP_SET=y$' arch/arm64/configs/albus_defconfig
+          grep -q '^CONFIG_IP_SET_HASH_IP=y$' arch/arm64/configs/albus_defconfig
+          grep -q '^CONFIG_IP_SET_HASH_NET=y$' arch/arm64/configs/albus_defconfig
+          grep -q '^CONFIG_NETFILTER_XT_SET=y$' arch/arm64/configs/albus_defconfig
+          grep -q '^CONFIG_NETFILTER_XT_MATCH_RECENT=y$' arch/arm64/configs/albus_defconfig
 
       - name: Verify kernel version
         run: |
@@ -37,7 +41,7 @@ jobs:
           PATCHLEVEL=$(grep "^PATCHLEVEL =" Makefile | awk '{print $3}')
           SUBLEVEL=$(grep "^SUBLEVEL =" Makefile | awk '{print $3}')
           echo "Kernel: $VERSION.$PATCHLEVEL.$SUBLEVEL"
-          [ "$VERSION" = "3" ] && [ "$PATCHLEVEL" = "18" ] && [ "$SUBLEVEL" = "71" ] || exit 1
+          [ "$VERSION" = "3" ] && [ "$PATCHLEVEL" = "18" ] && [ "$SUBLEVEL" = "71" ]
 
       - name: Clone GCC 4.9
         run: git clone --depth=1 --branch android-8.1.0_r42 https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 gcc49
@@ -47,13 +51,20 @@ jobs:
           chmod +x gcc49/bin/* 2>/dev/null || true
           gcc49/bin/aarch64-linux-android-gcc --version
 
-      - name: Build config
+      - name: Build config and verify final NORMAL state
         run: |
+          set -euxo pipefail
           cd kernel
           mkdir -p out
           make O="$PWD/out" ARCH=arm64 albus_defconfig
           make O="$PWD/out" ARCH=arm64 olddefconfig
-          ! grep -q '^CONFIG_ANDROID_PARANOID_NETWORK=y$' out/.config
+          grep -q '^CONFIG_KSU=y$' out/.config
+          grep -q '^# CONFIG_ANDROID_PARANOID_NETWORK is not set$' out/.config
+          grep -q '^CONFIG_IP_SET=y$' out/.config
+          grep -q '^CONFIG_IP_SET_HASH_IP=y$' out/.config
+          grep -q '^CONFIG_IP_SET_HASH_NET=y$' out/.config
+          grep -q '^CONFIG_NETFILTER_XT_SET=y$' out/.config
+          grep -q '^CONFIG_NETFILTER_XT_MATCH_RECENT=y$' out/.config
 
       - name: Compile kernel
         run: |
