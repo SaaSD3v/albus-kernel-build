@@ -24,6 +24,7 @@ jobs:
           cd kernel
           # lineage-18.1 has no separate 15.1-style optional firewall commit.
           grep -qx 'CONFIG_ANDROID_PARANOID_NETWORK=n' arch/arm64/configs/albus_defconfig
+          grep -qx 'CONFIG_NETFILTER_XT_MATCH_ADDRTYPE=y' arch/arm64/configs/albus_defconfig
           grep -q '^#include <linux/android_aid.h>$' security/commoncap.c
           ! grep -q '^#ifdef CONFIG_ANDROID_PARANOID_NETWORK$' security/commoncap.c
           grep -q 'AID_NET_RAW' security/commoncap.c
@@ -47,6 +48,10 @@ jobs:
           make O="$PWD/out" ARCH=arm64 olddefconfig
           ! grep -q '^CONFIG_KSU=y$' out/.config
           grep -q '^# CONFIG_ANDROID_PARANOID_NETWORK is not set$' out/.config
+          grep -q '^CONFIG_NETFILTER_XT_MATCH_ADDRTYPE=y$' out/.config
+
+      - name: Verify container compatibility
+        run: bash .github/scripts/verify-albus-container-config.sh kernel/out/.config
 
       - name: Compile kernel
         run: |
