@@ -22,6 +22,7 @@ jobs:
         run: |
           set -euxo pipefail
           cd kernel
+          grep -qx 'CONFIG_ANDROID_PARANOID_NETWORK=n' arch/arm64/configs/albus_defconfig
           grep -q '^#include <linux/android_aid.h>$' security/commoncap.c
           ! grep -q '^#ifdef CONFIG_ANDROID_PARANOID_NETWORK$' security/commoncap.c
           grep -q 'AID_NET_RAW' security/commoncap.c
