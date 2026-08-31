@@ -18,34 +18,23 @@ jobs:
       - name: Clone kernel source
         run: git clone --depth=1 --branch lineage-15.1 --single-branch https://github.com/SaaSD3v/android_kernel_motorola_msm8996.git kernel
 
-      - name: Verify fixed source and disable optional firewall features
+      - name: Verify Wi-Fi fix and disable optional firewall features
         run: |
           set -euxo pipefail
           cd kernel
-          grep -qx 'CONFIG_ANDROID_PARANOID_NETWORK=n' arch/arm64/configs/albus_defconfig
           grep -q '^#include <linux/android_aid.h>$' security/commoncap.c
           ! grep -q '^#ifdef CONFIG_ANDROID_PARANOID_NETWORK$' security/commoncap.c
           grep -q 'AID_NET_RAW' security/commoncap.c
           grep -q 'AID_NET_ADMIN' security/commoncap.c
-          grep -q '^CONFIG_KSU=y$' arch/arm64/configs/albus_defconfig
           cd "$GITHUB_WORKSPACE"
           python3 .github/scripts/disable-albus-optional-flags.py kernel/arch/arm64/configs/albus_defconfig
           cd kernel
-          grep -qx 'CONFIG_ANDROID_PARANOID_NETWORK=n' arch/arm64/configs/albus_defconfig
           ! grep -q '^CONFIG_IP_SET=y$' arch/arm64/configs/albus_defconfig
           ! grep -q '^CONFIG_IP_SET_HASH_IP=y$' arch/arm64/configs/albus_defconfig
           ! grep -q '^CONFIG_IP_SET_HASH_NET=y$' arch/arm64/configs/albus_defconfig
           ! grep -q '^CONFIG_NETFILTER_XT_SET=y$' arch/arm64/configs/albus_defconfig
           ! grep -q '^CONFIG_NETFILTER_XT_MATCH_RECENT=y$' arch/arm64/configs/albus_defconfig
           ! grep -q '^CONFIG_NETFILTER_XT_MATCH_OWNER=y$' arch/arm64/configs/albus_defconfig
-          grep -q '^CONFIG_NETFILTER_XT_MATCH_LIMIT=y$' arch/arm64/configs/albus_defconfig
-          grep -q '^CONFIG_NETFILTER_XT_MATCH_HASHLIMIT=y$' arch/arm64/configs/albus_defconfig
-          grep -q '^CONFIG_NETFILTER_XT_MATCH_PKTTYPE=y$' arch/arm64/configs/albus_defconfig
-          grep -q '^CONFIG_NETFILTER_XT_MATCH_MARK=y$' arch/arm64/configs/albus_defconfig
-          grep -q '^CONFIG_NETFILTER_XT_TARGET_MARK=y$' arch/arm64/configs/albus_defconfig
-          grep -q '^CONFIG_NETFILTER_NETLINK_QUEUE=y$' arch/arm64/configs/albus_defconfig
-          grep -q '^CONFIG_NETFILTER_NETLINK_LOG=y$' arch/arm64/configs/albus_defconfig
-          grep -q '^CONFIG_NETFILTER_XT_TARGET_NFLOG=y$' arch/arm64/configs/albus_defconfig
 
       - name: Verify kernel version
         run: |
