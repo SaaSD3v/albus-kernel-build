@@ -37,22 +37,36 @@ supported.patchlevels=
 supported.vendorpatchlevels=
 '; }
 
-BLOCK=boot;
+# albus recovery fstab: /dev/block/bootdevice/by-name/boot
+BLOCK=/dev/block/bootdevice/by-name/boot;
 IS_SLOT_DEVICE=0;
 RAMDISK_COMPRESSION=auto;
 PATCH_VBMETA_FLAG=auto;
 
 . tools/ak3-core.sh;
 
-# Replace only the kernel while preserving the existing albus ramdisk and separate DT.
+ui_print " ";
+ui_print "Albus kernel installer";
+ui_print "Target: \$BLOCK";
+ui_print "Replacing kernel while preserving ramdisk/DT";
+
+[ -e "\$BLOCK" ] || abort "Albus boot partition not found: \$BLOCK";
+[ -f "\$AKHOME/Image.gz" ] || abort "Image.gz missing from kernel ZIP";
+
+# Kernel-only install: dump/split the existing boot, keep its ramdisk and DT,
+# rebuild it with this ZIP's Image.gz, then write it back to the same boot block.
 split_boot;
 flash_boot;
+
+ui_print "Kernel written to albus boot partition";
 EOF
 
-# Safety checks: never ship the upstream Tuna/OMAP example by accident.
-grep -q '^BLOCK=boot;$' "$ANYKERNEL_DIR/anykernel.sh"
+# Packaging safety checks.
+grep -q '^BLOCK=/dev/block/bootdevice/by-name/boot;$' "$ANYKERNEL_DIR/anykernel.sh"
 grep -q '^IS_SLOT_DEVICE=0;$' "$ANYKERNEL_DIR/anykernel.sh"
 grep -q '^device.name1=albus$' "$ANYKERNEL_DIR/anykernel.sh"
+grep -q '^split_boot;$' "$ANYKERNEL_DIR/anykernel.sh"
+grep -q '^flash_boot;$' "$ANYKERNEL_DIR/anykernel.sh"
 if grep -Eqi 'tuna|toroplus|omap_hsmmc|XT1789' "$ANYKERNEL_DIR/anykernel.sh"; then
   echo "Invalid foreign-device reference found in anykernel.sh" >&2
   exit 1
