@@ -66,6 +66,9 @@ jobs:
           grep -q '^CONFIG_NETFILTER_XT_SET=y$' out/.config
           grep -q '^CONFIG_NETFILTER_XT_MATCH_RECENT=y$' out/.config
 
+      - name: Verify container compatibility
+        run: bash .github/scripts/verify-albus-container-config.sh kernel/out/.config
+
       - name: Compile kernel
         run: |
           cd kernel
