@@ -15,12 +15,17 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y git wget curl jq bc bison flex libssl-dev make libncurses-dev zip unzip python3
 
-      - name: Clone fixed no-KSU kernel tree
-        run: git clone --depth=1 --branch lineage-18.1-no-ksu --single-branch https://github.com/SaaSD3v/android_kernel_motorola_msm8996.git kernel
+      - name: Clone no-KSU kernel baseline
+        run: |
+          git init kernel
+          git -C kernel remote add origin https://github.com/SaaSD3v/android_kernel_motorola_msm8996.git
+          git -C kernel fetch --depth=1 origin 03f07549168a1552fed29afb6604a50e7428e3f1
+          git -C kernel checkout --detach FETCH_HEAD
 
-      - name: Verify fixed source and NO-KSU state
+      - name: Apply network fixes and verify NO-KSU state
         run: |
           set -euxo pipefail
+          python3 .github/scripts/apply-albus-network-fix.py kernel --addrtype
           cd kernel
           grep -qx 'CONFIG_ANDROID_PARANOID_NETWORK=n' arch/arm64/configs/albus_defconfig
           grep -qx 'CONFIG_NETFILTER_XT_MATCH_ADDRTYPE=y' arch/arm64/configs/albus_defconfig
