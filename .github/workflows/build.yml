@@ -21,10 +21,14 @@ jobs:
       - name: Clone kernel source
         run: git clone --branch lineage-15.1 --single-branch https://github.com/SaaSD3v/android_kernel_motorola_msm8996.git kernel
 
-      - name: Disable Android paranoid network
+      - name: Verify corrected paranoid networking source
         run: |
           cd kernel
-          sed -i 's/^CONFIG_ANDROID_PARANOID_NETWORK=y$/# CONFIG_ANDROID_PARANOID_NETWORK is not set/' arch/arm64/configs/albus_defconfig
+          grep -qx 'CONFIG_ANDROID_PARANOID_NETWORK=n' arch/arm64/configs/albus_defconfig
+          grep -q '^#include <linux/android_aid.h>$' security/commoncap.c
+          ! grep -q '^#ifdef CONFIG_ANDROID_PARANOID_NETWORK$' security/commoncap.c
+          grep -q 'AID_NET_RAW' security/commoncap.c
+          grep -q 'AID_NET_ADMIN' security/commoncap.c
 
       - name: Verify kernel version
         run: |
@@ -49,6 +53,7 @@ jobs:
           mkdir -p out
           make O="$PWD/out" ARCH=arm64 albus_defconfig
           make O="$PWD/out" ARCH=arm64 olddefconfig
+          ! grep -q '^CONFIG_ANDROID_PARANOID_NETWORK=y$' out/.config
 
       - name: Compile kernel
         run: |
