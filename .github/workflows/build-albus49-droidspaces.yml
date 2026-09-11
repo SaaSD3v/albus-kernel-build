@@ -34,13 +34,15 @@ jobs:
         run: |
           git clone --depth=20 --branch "$KERNEL_BRANCH" --single-branch "$KERNEL_REPO" kernel
           cd kernel
-          git log -5 --oneline
+          git log -7 --oneline
           grep -q '^VERSION = 4$' Makefile
           grep -q '^PATCHLEVEL = 9$' Makefile
           grep -q 'CONFIG_ALBUS_DTB=y' arch/arm64/configs/albus_defconfig
           grep -q 'static struct file_system_type cgroup2_fs_type;' kernel/cgroup.c
           grep -q 'CLONE_NEWCGROUP' kernel/nsproxy.c
           test ! -d drivers/kernelsu
+          test -f droidspaces/patches/0003-audio-fix-madera-unused-codec.patch
+          test -f droidspaces/patches/0004-nfc-pass-device-to-hw-check.patch
 
       - name: Apply DroidSpaces source compatibility patches
         run: |
@@ -54,6 +56,7 @@ jobs:
           grep -q 'DroidSpaces/LXC compatibility' kernel/cgroup.c
           grep -q '^#include <linux/android_aid.h>$' security/commoncap.c
           ! grep -q '^#ifdef CONFIG_ANDROID_PARANOID_NETWORK$' security/commoncap.c
+          grep -q 'struct nqx_dev \*nqx_dev)' drivers/nfc/nq-nci.c
 
       - name: Clone Android GCC 4.9 toolchains
         run: |
@@ -133,7 +136,7 @@ jobs:
           echo '--- networking final config ---'
           grep -E 'CONFIG_(VETH|BRIDGE|NF_|NFT_|IP_NF_|NETFILTER|IP_SET)' "$C" | sort || true
 
-      - name: Compile Linux 4.9 kernel and separated DTBs
+      - name: Compile Linux 4.9 kernel and Albus-only separated DTBs
         run: |
           set -euxo pipefail
           cd kernel
@@ -144,9 +147,16 @@ jobs:
             CROSS_COMPILE="$CROSS_COMPILE" CROSS_COMPILE_ARM32="$CROSS_COMPILE_ARM32" \
             HOSTLDFLAGS="$HOSTLDFLAGS" Image.gz dtbs
           test -s out/arch/arm64/boot/Image.gz
-          ls -lh out/arch/arm64/boot/dts/qcom/msm8953-albus*.dtb
-          cat out/arch/arm64/boot/dts/qcom/*.dtb > "$GITHUB_WORKSPACE/albus49-dtb.img"
+          mapfile -t ALBUS_DTBS < <(find out/arch/arm64/boot/dts/qcom -maxdepth 1 -type f -name 'msm8953-albus*.dtb' -print | sort)
+          printf 'Albus DTBs (%d):\n' "${#ALBUS_DTBS[@]}"
+          printf '%s\n' "${ALBUS_DTBS[@]}"
+          test "${#ALBUS_DTBS[@]}" -gt 0
+          : > "$GITHUB_WORKSPACE/albus49-dtb.img"
+          for dtb in "${ALBUS_DTBS[@]}"; do
+            cat "$dtb" >> "$GITHUB_WORKSPACE/albus49-dtb.img"
+          done
           test -s "$GITHUB_WORKSPACE/albus49-dtb.img"
+          sha256sum "$GITHUB_WORKSPACE/albus49-dtb.img"
 
       - name: Report optional kernel modules
         run: |
