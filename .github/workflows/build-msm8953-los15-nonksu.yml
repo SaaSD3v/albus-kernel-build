@@ -12,6 +12,12 @@ on:
 permissions:
   contents: read
 
+env:
+  KERNEL_REPO: https://github.com/SaaSD3v/kernel_motorola_msm8953.git
+  KERNEL_BRANCH: lineage-15.1-albus-ci
+  BASE_BRANCH: lineage-15.1
+  BASE_SHA: e043ce3fb128f61698ab53311d20705685ac9b06
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -26,24 +32,22 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y git wget curl jq bc bison flex libssl-dev make libncurses-dev zip unzip python3 cpio
 
-      - name: Clone msm8953 LOS 15 kernel
+      - name: Clone committed msm8953 LOS 15 port
         run: |
           set -euxo pipefail
-          git clone --depth=1 --branch lineage-15.1 --single-branch https://github.com/SaaSD3v/kernel_motorola_msm8953.git kernel
+          git clone --depth=20 --branch "$KERNEL_BRANCH" --single-branch "$KERNEL_REPO" kernel
           cd kernel
-          git config user.name 'Albus Kernel CI'
-          git config user.email 'actions@github.com'
-          git remote add los15-reference https://github.com/SaaSD3v/android_kernel_motorola_msm8996.git
-          git fetch --depth=20 --no-tags los15-reference lineage-15.1
-          git rev-parse HEAD
-          test "$(git rev-parse HEAD)" = "e043ce3fb128f61698ab53311d20705685ac9b06"
+          git fetch --depth=20 origin "$BASE_BRANCH:refs/remotes/origin/$BASE_BRANCH"
+          test "$(git merge-base HEAD origin/$BASE_BRANCH)" = "$BASE_SHA"
+          test "$(git rev-list --count origin/$BASE_BRANCH..HEAD)" = 10
+          git --no-pager log --oneline origin/$BASE_BRANCH..HEAD
 
-      - name: Adapt LOS 15 commits without KernelSU
+      - name: Verify port provenance and reject KernelSU
         run: |
           set -euxo pipefail
           cd kernel
 
-          commits=(
+          expected=(
             064c1c410c6f174e6f4c1d4462502cbca5b8d57d
             df88924352e30ea00bf25b59ffc1624fca657e1e
             dff95d9238ed8eec00b14ce9a4067ab996a58704
@@ -55,19 +59,9 @@ jobs:
             155561f0a3c1035128563a38670fed14fb26ee8c
             9a7416218ae637c4120c417b31428bb0747fdfdf
           )
-
-          for c in "${commits[@]}"; do
-            echo "=== cherry-pick $c ==="
-            git cherry-pick -x "$c"
+          for c in "${expected[@]}"; do
+            git log origin/$BASE_BRANCH..HEAD --format=%B | grep -q "cherry picked from commit $c"
           done
-
-          echo '=== resulting history ==='
-          git --no-pager log --oneline --decorate -15
-
-      - name: Reject KernelSU and validate adapted source
-        run: |
-          set -euxo pipefail
-          cd kernel
 
           test ! -d drivers/kernelsu
           ! grep -q '^CONFIG_KSU=' arch/arm64/configs/albus_defconfig
@@ -122,11 +116,9 @@ jobs:
           mkdir -p out
           make O="$PWD/out" ARCH=arm64 albus_defconfig
           make O="$PWD/out" ARCH=arm64 olddefconfig
-
           test ! -e drivers/kernelsu
           ! grep -q '^CONFIG_KSU=' out/.config
           grep -qx '# CONFIG_ANDROID_PARANOID_NETWORK is not set' out/.config
-
           cd "$GITHUB_WORKSPACE"
           bash .github/scripts/verify-albus-container-config.sh kernel/out/.config
 
@@ -145,9 +137,9 @@ jobs:
           set -euxo pipefail
           cd kernel
           mkdir -p "$GITHUB_WORKSPACE/validated-port"
-          git format-patch --stdout e043ce3fb128f61698ab53311d20705685ac9b06..HEAD > "$GITHUB_WORKSPACE/validated-port/los15-nonksu.patch"
-          git log --format=fuller e043ce3fb128f61698ab53311d20705685ac9b06..HEAD > "$GITHUB_WORKSPACE/validated-port/commits.txt"
-          git diff --name-only e043ce3fb128f61698ab53311d20705685ac9b06..HEAD > "$GITHUB_WORKSPACE/validated-port/changed-files.txt"
+          git format-patch --stdout origin/$BASE_BRANCH..HEAD > "$GITHUB_WORKSPACE/validated-port/los15-nonksu.patch"
+          git log --format=fuller origin/$BASE_BRANCH..HEAD > "$GITHUB_WORKSPACE/validated-port/commits.txt"
+          git diff --name-only origin/$BASE_BRANCH..HEAD > "$GITHUB_WORKSPACE/validated-port/changed-files.txt"
           while IFS= read -r f; do
             [ -f "$f" ] || continue
             mkdir -p "$GITHUB_WORKSPACE/validated-port/files/$(dirname "$f")"
