@@ -29,12 +29,12 @@ jobs:
       - name: Clone msm8953 LOS 15 kernel
         run: |
           set -euxo pipefail
-          git clone --branch lineage-15.1 --single-branch https://github.com/SaaSD3v/kernel_motorola_msm8953.git kernel
+          git clone --depth=1 --branch lineage-15.1 --single-branch https://github.com/SaaSD3v/kernel_motorola_msm8953.git kernel
           cd kernel
           git config user.name 'Albus Kernel CI'
           git config user.email 'actions@github.com'
           git remote add los15-reference https://github.com/SaaSD3v/android_kernel_motorola_msm8996.git
-          git fetch --no-tags los15-reference lineage-15.1
+          git fetch --depth=20 --no-tags los15-reference lineage-15.1
           git rev-parse HEAD
           test "$(git rev-parse HEAD)" = "e043ce3fb128f61698ab53311d20705685ac9b06"
 
