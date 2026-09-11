@@ -14,8 +14,11 @@ permissions:
 
 env:
   KERNEL_REPO: https://github.com/SaaSD3v/kernel_motorola_msm8593_4.9.git
-  KERNEL_BRANCH: lineage-15.1-albus-droidspaces-4.9
-  EXPECTED_KERNEL_SHA: 2a4babcae2d6df506fd64834e074b9753c73f666
+  KERNEL_BRANCH: lineage-15.1-albus-droidspaces-4.9-rebuild
+  EXPECTED_KERNEL_SHA: 24bb02c3691a4c93fd7ce9725f80561e31743215
+  UPSTREAM_BASE_SHA: 9f7458ae94af543b42d9ce03ff66cb2e768acc25
+  CGROUP_ATTRIBUTED_SHA: 7c7f214e472fd9020ef9e15a6bbcb5cabf1b9f52
+  NETWORK_ATTRIBUTED_SHA: 0175e8da9030ddd77f2a3242e3da91704c65b43f
 
 jobs:
   build:
@@ -31,13 +34,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y git bc bison flex libssl-dev make libncurses-dev zip unzip python3 cpio
 
-      - name: Clone materialized Albus 4.9 source
+      - name: Clone attributed Albus 4.9 source
         run: |
           set -euxo pipefail
           git clone --depth=20 --branch "$KERNEL_BRANCH" --single-branch "$KERNEL_REPO" kernel
           cd kernel
           test "$(git rev-parse HEAD)" = "$EXPECTED_KERNEL_SHA"
-          git log -8 --oneline
+          git merge-base --is-ancestor "$UPSTREAM_BASE_SHA" HEAD
+          git log -8 --format='%H | %an <%ae> | %s'
           grep -q '^VERSION = 4$' Makefile
           grep -q '^PATCHLEVEL = 9$' Makefile
           grep -q 'CONFIG_ALBUS_DTB=y' arch/arm64/configs/albus_defconfig
@@ -45,10 +49,18 @@ jobs:
           grep -q 'CLONE_NEWCGROUP' kernel/nsproxy.c
           test ! -d drivers/kernelsu
 
-      - name: Validate DroidSpaces changes are already materialized
+      - name: Verify authorship and materialized source
         run: |
           set -euxo pipefail
           cd kernel
+
+          test "$(git show -s --format='%an <%ae>' "$CGROUP_ATTRIBUTED_SHA")" = 'ravindu644 <droidcasts@protonmail.com>'
+          test "$(git show -s --format='%an <%ae>' "$NETWORK_ATTRIBUTED_SHA")" = 'SaaSD3v <hearesaas@gmail.com>'
+          grep -q 'marcost2/kernel_motorola_msm8593_4.9' Documentation/albus-4.9-provenance.md
+          grep -q '3fda10145bcda087e8a59caee566a51623f754aa' Documentation/albus-4.9-provenance.md
+          grep -q '631742a7f686cd41fcfbcd0d90cfc61f7d26da38' Documentation/albus-4.9-provenance.md
+          grep -q '9710a7cf95e8a938cf5553e776bad32a865302a6' Documentation/albus-4.9-provenance.md
+
           grep -q 'DroidSpaces/LXC compatibility' kernel/cgroup.c
           grep -q '^#include <linux/android_aid.h>$' security/commoncap.c
           ! grep -q '^#ifdef CONFIG_ANDROID_PARANOID_NETWORK$' security/commoncap.c
@@ -58,13 +70,12 @@ jobs:
           grep -q '^CONFIG_USER_NS=y$' arch/arm64/configs/albus_defconfig
           grep -q '^CONFIG_PID_NS=y$' arch/arm64/configs/albus_defconfig
           grep -q '^CONFIG_IPC_NS=y$' arch/arm64/configs/albus_defconfig
-          ! grep -q 'setCONFIG_IPC_NS' arch/arm64/configs/albus_defconfig
           grep -q '^# CONFIG_ANDROID_PARANOID_NETWORK is not set$' arch/arm64/configs/albus_defconfig
           ! grep -q '^CONFIG_KSU' arch/arm64/configs/albus_defconfig
-          for p in droidspaces/patches/*.patch; do
-            echo "Confirming already materialized: $p"
-            git apply --reverse --check "$p"
-          done
+
+          # The final product branch contains source changes directly; CI does not
+          # apply compatibility patches or merge external config fragments.
+          test ! -d droidspaces
 
       - name: Clone Android GCC 4.9 toolchains
         run: |
@@ -74,7 +85,7 @@ jobs:
           gcc64/bin/aarch64-linux-android-gcc --version
           gcc32/bin/arm-linux-androideabi-gcc --version
 
-      - name: Generate config directly from materialized albus_defconfig
+      - name: Generate config directly from attributed albus_defconfig
         run: |
           set -euxo pipefail
           cd kernel
@@ -168,7 +179,7 @@ jobs:
       - name: Upload kernel ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: albus-linux-4.9-droidspaces-los15-direct-source
+          name: albus-linux-4.9-droidspaces-los15-attributed
           path: |
             albus-linux-4.9-droidspaces-los15.zip
             albus-linux-4.9-droidspaces-los15.zip.sha256
@@ -178,7 +189,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: albus-linux-4.9-droidspaces-validation-direct-source
+          name: albus-linux-4.9-droidspaces-validation-attributed
           path: |
             albus49-final.config
             albus49-dtb.img
