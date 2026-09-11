@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+# CI source refresh: lineage-15.1-albus-droidspaces-4.9 @ b69494e
 
 if [ "$#" -ne 5 ]; then
   echo "Usage: $0 <anykernel-dir> <Image.gz> <dtb-image> <output-zip> <kernel-string>" >&2
