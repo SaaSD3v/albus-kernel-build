@@ -12,6 +12,7 @@ on:
 permissions:
   contents: read
 
+# Rerun after correcting the 0003 audio patch hunk metadata.
 env:
   KERNEL_REPO: https://github.com/SaaSD3v/kernel_motorola_msm8593_4.9.git
   KERNEL_BRANCH: lineage-15.1-albus-droidspaces-4.9
