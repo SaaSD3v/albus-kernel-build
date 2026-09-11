@@ -90,7 +90,7 @@ jobs:
           grep -qx 'CONFIG_ANDROID_PARANOID_NETWORK=n' arch/arm64/configs/albus_defconfig
 
           grep -q 'CGRP_ROOT_NOPREFIX' kernel/cgroup.c
-          grep -q 'container runtimes such as DroidSpaces and LXC' kernel/cgroup.c
+          grep -q 'runtimes such as DroidSpaces and LXC' kernel/cgroup.c
           grep -q 'stats = &no_dev_stats;' net/netfilter/xt_qtaguid.c
           grep -q '^extern YYLTYPE yylloc;' scripts/dtc/dtc-lexer.l
           grep -q '^extern YYLTYPE yylloc;' scripts/dtc/dtc-lexer.lex.c_shipped
