@@ -67,8 +67,12 @@ jobs:
         run: |
           set -euxo pipefail
           cd kernel
+          export CROSS_COMPILE="$GITHUB_WORKSPACE/gcc64/bin/aarch64-linux-android-"
+          export CROSS_COMPILE_ARM32="$GITHUB_WORKSPACE/gcc32/bin/arm-linux-androideabi-"
           mkdir -p out
-          make O="$PWD/out" ARCH=arm64 albus_defconfig
+          make O="$PWD/out" ARCH=arm64 \
+            CROSS_COMPILE="$CROSS_COMPILE" CROSS_COMPILE_ARM32="$CROSS_COMPILE_ARM32" \
+            albus_defconfig
 
           apply_fragment() {
             local f="$1"
@@ -88,7 +92,9 @@ jobs:
 
           apply_fragment droidspaces/albus-4.9.config
           apply_fragment droidspaces/albus-4.9-network.config
-          make O="$PWD/out" ARCH=arm64 olddefconfig
+          make O="$PWD/out" ARCH=arm64 \
+            CROSS_COMPILE="$CROSS_COMPILE" CROSS_COMPILE_ARM32="$CROSS_COMPILE_ARM32" \
+            olddefconfig
 
           cp out/.config "$GITHUB_WORKSPACE/albus49-final.config"
 
