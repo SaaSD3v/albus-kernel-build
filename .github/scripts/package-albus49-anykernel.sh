@@ -1,24 +1,24 @@
 #!/usr/bin/env bash
 set -euo pipefail
-# CI source refresh: lineage-15.1-albus-droidspaces-4.9 @ b69494e
 
-if [ "$#" -ne 5 ]; then
-  echo "Usage: $0 <anykernel-dir> <Image.gz> <dtb-image> <output-zip> <kernel-string>" >&2
+if [ "$#" -ne 4 ]; then
+  echo "Usage: $0 <anykernel-dir> <Image.gz-dtb> <output-zip> <kernel-string>" >&2
   exit 2
 fi
 
 AK="$1"
-IMAGE="$2"
-DTB="$3"
-OUT="$4"
-KSTRING="$5"
+IMAGE_DTB="$2"
+OUT="$3"
+KSTRING="$4"
 
 [ -d "$AK/tools" ] || { echo "AnyKernel3 tools not found" >&2; exit 1; }
-[ -s "$IMAGE" ] || { echo "Kernel image missing: $IMAGE" >&2; exit 1; }
-[ -s "$DTB" ] || { echo "Separated DTB image missing: $DTB" >&2; exit 1; }
+[ -s "$IMAGE_DTB" ] || { echo "Appended kernel image missing: $IMAGE_DTB" >&2; exit 1; }
 
-cp "$IMAGE" "$AK/Image.gz"
-cp "$DTB" "$AK/dtb"
+# Albus device trees declare BOARD_KERNEL_IMAGE_NAME := Image.gz-dtb.
+# Keep the DTBs appended to the kernel instead of presenting them as a
+# separated boot-image DTB component.
+rm -f "$AK/Image" "$AK/Image.gz" "$AK/Image.lz4" "$AK/Image.gz-dtb" "$AK/dtb" "$AK/dtbo"
+cp "$IMAGE_DTB" "$AK/Image.gz-dtb"
 
 cat > "$AK/anykernel.sh" <<EOF
 ### AnyKernel3 Ramdisk Mod Script
@@ -50,12 +50,11 @@ PATCH_VBMETA_FLAG=auto;
 
 ui_print " ";
 ui_print "Albus Linux 4.9 DroidSpaces kernel";
-ui_print "Replacing kernel and separated DTB";
+ui_print "Replacing appended Image.gz-dtb";
 ui_print "Preserving the current LOS 15.1 ramdisk";
 
 [ -e "\$BLOCK" ] || abort "Albus boot partition not found: \$BLOCK";
-[ -f "\$AKHOME/Image.gz" ] || abort "Image.gz missing";
-[ -f "\$AKHOME/dtb" ] || abort "4.9 dtb image missing";
+[ -f "\$AKHOME/Image.gz-dtb" ] || abort "Image.gz-dtb missing";
 
 split_boot;
 flash_boot;
