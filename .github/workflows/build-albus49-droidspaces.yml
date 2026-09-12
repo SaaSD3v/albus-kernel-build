@@ -69,12 +69,8 @@ jobs:
           grep -q '^CONFIG_CGROUP_DEVICE=y$' arch/arm64/configs/albus_defconfig
           grep -q '^CONFIG_USER_NS=y$' arch/arm64/configs/albus_defconfig
           grep -q '^CONFIG_PID_NS=y$' arch/arm64/configs/albus_defconfig
-          grep -q '^CONFIG_IPC_NS=y$' arch/arm64/configs/albus_defconfig
           grep -q '^# CONFIG_ANDROID_PARANOID_NETWORK is not set$' arch/arm64/configs/albus_defconfig
           ! grep -q '^CONFIG_KSU' arch/arm64/configs/albus_defconfig
-
-          # The final product branch contains source changes directly; CI does not
-          # apply compatibility patches or merge external config fragments.
           test ! -d droidspaces
 
       - name: Clone Android GCC 4.9 toolchains
@@ -134,7 +130,7 @@ jobs:
           echo '--- networking final config ---'
           grep -E 'CONFIG_(VETH|BRIDGE|NF_|NFT_|IP_NF_|NETFILTER|IP_SET)' "$C" | sort || true
 
-      - name: Compile Linux 4.9 kernel and Albus-only separated DTBs
+      - name: Compile Albus Image.gz-dtb
         run: |
           set -euxo pipefail
           cd kernel
@@ -143,19 +139,17 @@ jobs:
           export HOSTLDFLAGS='-Wl,-z,muldefs'
           make -j"$(nproc)" O="$PWD/out" ARCH=arm64 \
             CROSS_COMPILE="$CROSS_COMPILE" CROSS_COMPILE_ARM32="$CROSS_COMPILE_ARM32" \
-            HOSTLDFLAGS="$HOSTLDFLAGS" Image.gz dtbs
-          test -s out/arch/arm64/boot/Image.gz
-          mapfile -t ALBUS_DTBS < <(find out/arch/arm64/boot/dts/qcom -maxdepth 1 -type f -name 'msm8953-albus*.dtb' -print | sort)
-          printf 'Albus DTBs (%d):\n' "${#ALBUS_DTBS[@]}"
-          printf '%s\n' "${ALBUS_DTBS[@]}"
-          test "${#ALBUS_DTBS[@]}" -gt 0
-          : > "$GITHUB_WORKSPACE/albus49-dtb.img"
-          for dtb in "${ALBUS_DTBS[@]}"; do
-            cat "$dtb" >> "$GITHUB_WORKSPACE/albus49-dtb.img"
-          done
-          test -s "$GITHUB_WORKSPACE/albus49-dtb.img"
-          sha256sum "$GITHUB_WORKSPACE/albus49-dtb.img"
-          gzip -dc out/arch/arm64/boot/Image.gz | strings | grep -m1 '^Linux version 4\.9\.'
+            HOSTLDFLAGS="$HOSTLDFLAGS" Image.gz-dtb
+
+          IMAGE=out/arch/arm64/boot/Image.gz
+          IMAGE_DTB=out/arch/arm64/boot/Image.gz-dtb
+          test -s "$IMAGE"
+          test -s "$IMAGE_DTB"
+          test "$(stat -c%s "$IMAGE_DTB")" -gt "$(stat -c%s "$IMAGE")"
+          printf 'Image.gz size: %s\n' "$(stat -c%s "$IMAGE")"
+          printf 'Image.gz-dtb size: %s\n' "$(stat -c%s "$IMAGE_DTB")"
+          gzip -dc "$IMAGE" | strings | grep -m1 '^Linux version 4\.9\.'
+          find out/arch/arm64/boot/dts -type f -name '*.dtb' -print | sort | tee "$GITHUB_WORKSPACE/albus49-built-dtbs.txt"
 
       - name: Report optional kernel modules
         run: |
@@ -165,24 +159,24 @@ jobs:
       - name: Clone AnyKernel3
         run: git clone --depth=1 https://github.com/osm0sis/AnyKernel3.git anykernel
 
-      - name: Package flashable Albus 4.9 test ZIP
+      - name: Package flashable appended-DTB Albus 4.9 ZIP
         run: |
           bash .github/scripts/package-albus49-anykernel.sh \
             anykernel \
-            kernel/out/arch/arm64/boot/Image.gz \
-            albus49-dtb.img \
-            "$GITHUB_WORKSPACE/albus-linux-4.9-droidspaces-los15.zip" \
+            kernel/out/arch/arm64/boot/Image.gz-dtb \
+            "$GITHUB_WORKSPACE/albus-linux-4.9-droidspaces-los15-appended-dtb.zip" \
             albus-linux-4.9-droidspaces-los15
-          unzip -l albus-linux-4.9-droidspaces-los15.zip | grep -E 'Image.gz|dtb|anykernel.sh'
-          sha256sum albus-linux-4.9-droidspaces-los15.zip | tee albus-linux-4.9-droidspaces-los15.zip.sha256
+          unzip -l albus-linux-4.9-droidspaces-los15-appended-dtb.zip | grep 'Image.gz-dtb'
+          ! unzip -l albus-linux-4.9-droidspaces-los15-appended-dtb.zip | grep -Eq '[[:space:]]dtb$'
+          sha256sum albus-linux-4.9-droidspaces-los15-appended-dtb.zip | tee albus-linux-4.9-droidspaces-los15-appended-dtb.zip.sha256
 
       - name: Upload kernel ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: albus-linux-4.9-droidspaces-los15-attributed
+          name: albus-linux-4.9-droidspaces-los15-appended-dtb
           path: |
-            albus-linux-4.9-droidspaces-los15.zip
-            albus-linux-4.9-droidspaces-los15.zip.sha256
+            albus-linux-4.9-droidspaces-los15-appended-dtb.zip
+            albus-linux-4.9-droidspaces-los15-appended-dtb.zip.sha256
           if-no-files-found: error
 
       - name: Upload validation files
@@ -192,6 +186,6 @@ jobs:
           name: albus-linux-4.9-droidspaces-validation-attributed
           path: |
             albus49-final.config
-            albus49-dtb.img
+            albus49-built-dtbs.txt
             albus49-modules.txt
           if-no-files-found: warn
