@@ -1,0 +1,101 @@
+name: Build Albus 4.9 Original Test
+
+on:
+  push:
+    branches:
+      - albus-4.9-test
+    paths:
+      - '.github/workflows/build-albus-4.9-original-test.yml'
+      - '.github/scripts/package-albus-anykernel.sh'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout builder
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git bc bison flex libssl-dev make libncurses-dev zip unzip python3
+
+      - name: Clone exact original Albus 4.9 source
+        run: |
+          set -euxo pipefail
+          git init kernel
+          git -C kernel remote add origin https://github.com/marcost2/kernel_motorola_msm8593_4.9.git
+          git -C kernel fetch --depth=1 origin a9572cf3d93be15565ba24c163e3333971927f70
+          git -C kernel checkout --detach FETCH_HEAD
+          test "$(git -C kernel rev-parse HEAD)" = "a9572cf3d93be15565ba24c163e3333971927f70"
+          test "$(git -C kernel rev-parse HEAD^{tree})" = "343f9d8d670495b28fd8f949cd66e982fea4ff58"
+          git -C kernel diff --exit-code
+
+      - name: Record original source provenance
+        run: |
+          {
+            echo 'Repository: https://github.com/marcost2/kernel_motorola_msm8593_4.9'
+            echo 'Branch: lineage-18.1'
+            echo 'Commit: a9572cf3d93be15565ba24c163e3333971927f70'
+            echo 'Tree: 343f9d8d670495b28fd8f949cd66e982fea4ff58'
+            echo 'Source modifications: none'
+          } | tee source-provenance.txt
+
+      - name: Clone Android GCC 4.9
+        run: |
+          git clone --depth=1 --branch android-8.1.0_r42 https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 gcc49
+          chmod +x gcc49/bin/* 2>/dev/null || true
+          gcc49/bin/aarch64-linux-android-gcc --version
+
+      - name: Generate original albus config
+        run: |
+          set -euxo pipefail
+          cd kernel
+          mkdir -p out
+          make O="$PWD/out" ARCH=arm64 albus_defconfig
+          cp out/.config "$GITHUB_WORKSPACE/albus-original-4.9.config"
+          git diff --exit-code
+
+      - name: Compile original Image.gz
+        run: |
+          set -euxo pipefail
+          cd kernel
+          export CROSS_COMPILE="$GITHUB_WORKSPACE/gcc49/bin/aarch64-linux-android-"
+          export HOSTLDFLAGS='-Wl,-z,muldefs'
+          make -j"$(nproc)" O="$PWD/out" ARCH=arm64 CROSS_COMPILE="$CROSS_COMPILE" HOSTLDFLAGS="$HOSTLDFLAGS" Image.gz
+
+      - name: Verify pure build output
+        run: |
+          set -euxo pipefail
+          test -s kernel/out/arch/arm64/boot/Image.gz
+          file kernel/out/arch/arm64/boot/Image.gz
+          sha256sum kernel/out/arch/arm64/boot/Image.gz | tee Image.gz.sha256
+          test "$(git -C kernel rev-parse HEAD)" = "a9572cf3d93be15565ba24c163e3333971927f70"
+          git -C kernel diff --exit-code
+
+      - name: Clone AnyKernel3
+        run: git clone --depth=1 https://github.com/osm0sis/AnyKernel3.git anykernel
+
+      - name: Package kernel-only AnyKernel ZIP
+        run: |
+          set -euxo pipefail
+          bash .github/scripts/package-albus-anykernel.sh \
+            anykernel \
+            kernel/out/arch/arm64/boot/Image.gz \
+            "$GITHUB_WORKSPACE/albus-4.9-original-lineage18.1-test.zip" \
+            albus-4.9-original-lineage18.1-test
+          unzip -l albus-4.9-original-lineage18.1-test.zip
+          unzip -Z1 albus-4.9-original-lineage18.1-test.zip | grep -qx 'Image.gz'
+          sha256sum albus-4.9-original-lineage18.1-test.zip | tee albus-4.9-original-lineage18.1-test.zip.sha256
+
+      - name: Upload test kernel
+        uses: actions/upload-artifact@v4
+        with:
+          name: albus-4.9-original-lineage18.1-test
+          path: |
+            albus-4.9-original-lineage18.1-test.zip
+            albus-4.9-original-lineage18.1-test.zip.sha256
+            Image.gz.sha256
+            source-provenance.txt
+            albus-original-4.9.config
